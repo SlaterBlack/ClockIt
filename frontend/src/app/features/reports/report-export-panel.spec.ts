@@ -72,9 +72,10 @@ describe('ReportExportPanel', () => {
     expect(fixture.nativeElement.querySelector('.export-actions button').disabled).toBe(true);
   });
 
-  it('validates the Xero form before downloading', () => {
+  it('requires an earnings rate for every pay type used before downloading', () => {
     setEntries([makeEntry('e1', true, new Date(2026, 9, 19, 10).toISOString())]);
     fixture.componentInstance.toggleXero();
+    fixture.componentInstance.setEarningsRate('hourly', '  ');
     fixture.detectChanges();
 
     fixture.componentInstance.exportXero();
@@ -84,26 +85,36 @@ describe('ReportExportPanel', () => {
     expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('required');
   });
 
-  it('refuses a Xero export when nothing is billable and complete', () => {
-    setEntries([makeEntry('e1', false, new Date(2026, 9, 19, 10).toISOString())]);
+  it('ignores blank earnings rates for pay types that are not in the report', async () => {
+    setEntries([makeEntry('e1', true, new Date(2026, 9, 19, 10).toISOString())]);
+    fixture.componentInstance.setEarningsRate('sick-leave', '');
+
+    fixture.componentInstance.exportXero();
+
+    expect(fixture.componentInstance.errorMessage()).toBeNull();
+    expect(downloads).toHaveLength(1);
+  });
+
+  it('refuses a Xero export when no entry is complete', () => {
+    setEntries([makeEntry('e1', true, null)]);
 
     fixture.componentInstance.exportXero();
 
     expect(downloads).toHaveLength(0);
-    expect(fixture.componentInstance.errorMessage()).toContain('no completed billable');
+    expect(fixture.componentInstance.errorMessage()).toContain('no completed entries');
   });
 
-  it('downloads a Xero invoice CSV once the form is valid', async () => {
-    setEntries([makeEntry('e1', true, new Date(2026, 9, 19, 10).toISOString())]);
+  it('downloads a Xero payroll timesheet CSV using the mapped earnings rate per pay type', async () => {
+    const leave = makeEntry('e1', false, new Date(2026, 9, 19, 10).toISOString());
+    leave.task = { id: 't2', name: 'Leave', payType: 'annual-leave' };
+    setEntries([leave]);
     const panel = fixture.componentInstance;
-    panel.contactName.set('Acme Ltd');
-    panel.invoiceNumber.set('INV-001');
-    panel.hourlyRate.set(90);
+    panel.setEarningsRate('annual-leave', 'Annual Leave (AL)');
 
     panel.exportXero();
 
     expect(panel.errorMessage()).toBeNull();
-    expect(downloads[0].filename).toBe('xero-invoice_2026-10-19_to_2026-10-25.csv');
-    expect(await downloads[0].blob.text()).toContain('Acme Ltd,INV-001');
+    expect(downloads[0].filename).toBe('xero-timesheets_2026-10-19_to_2026-10-25.csv');
+    expect(await downloads[0].blob.text()).toContain('Alex Doe,19/10/2026,Annual Leave (AL),1.00');
   });
 });

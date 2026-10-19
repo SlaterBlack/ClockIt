@@ -1,15 +1,14 @@
 import { Component, computed, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import type { PayType } from '../../core/models/pay-type.model';
+import { PAY_TYPES } from '../../core/models/pay-type.model';
 import type { TimeEntry } from '../../core/models/time-entry.model';
 import {
   buildReportCsv,
-  buildXeroInvoiceCsv,
+  buildXeroTimesheetCsv,
+  completedEntries,
   downloadTextFile,
-  invoiceableEntries,
-  localDateKey,
 } from './report-export';
-
-const DEFAULT_PAYMENT_TERM_DAYS = 30;
 
 @Component({
   selector: 'app-report-export-panel',
@@ -23,16 +22,19 @@ export class ReportExportPanel {
   readonly endDate = input('');
 
   readonly isXeroOpen = signal(false);
-  readonly contactName = signal('');
-  readonly invoiceNumber = signal('');
-  readonly invoiceDate = signal(localDateKey(new Date()));
-  readonly dueDate = signal(this.defaultDueDate());
-  readonly hourlyRate = signal<number | null>(null);
-  readonly accountCode = signal('200');
-  readonly taxType = signal('Tax Exempt');
+  readonly payTypes = PAY_TYPES;
+  readonly earningsRates = signal<Record<PayType, string>>(
+    Object.fromEntries(PAY_TYPES.map((type) => [type.value, type.defaultEarningsRate])) as Record<
+      PayType,
+      string
+    >,
+  );
   readonly errorMessage = signal<string | null>(null);
 
-  readonly invoiceableCount = computed(() => invoiceableEntries(this.entries()).length);
+  readonly completedCount = computed(() => completedEntries(this.entries()).length);
+  readonly employeeCount = computed(
+    () => new Set(completedEntries(this.entries()).map((entry) => entry.userId)).size,
+  );
 
   exportCsv(): void {
     this.errorMessage.set(null);
@@ -47,53 +49,39 @@ export class ReportExportPanel {
     this.errorMessage.set(null);
   }
 
-  exportXero(): void {
-    const error = this.validateXero();
-    this.errorMessage.set(error);
-    if (error) {
-      return;
-    }
-    const csv = buildXeroInvoiceCsv(this.entries(), {
-      contactName: this.contactName().trim(),
-      invoiceNumber: this.invoiceNumber().trim(),
-      invoiceDate: this.invoiceDate(),
-      dueDate: this.dueDate(),
-      hourlyRate: this.hourlyRate() ?? 0,
-      accountCode: this.accountCode().trim(),
-      taxType: this.taxType().trim(),
-      reference:
-        this.startDate() && this.endDate() ? `${this.startDate()} to ${this.endDate()}` : '',
-    });
-    downloadTextFile(`xero-invoice${this.fileSuffix()}.csv`, csv);
+  setEarningsRate(payType: PayType, name: string): void {
+    this.earningsRates.update((rates) => ({ ...rates, [payType]: name }));
   }
 
-  private validateXero(): string | null {
-    if (this.invoiceableCount() === 0) {
-      return 'There are no completed billable entries to invoice in this report.';
+  exportXero(): void {
+    if (this.completedCount() === 0) {
+      this.errorMessage.set('There are no completed entries to export in this report.');
+      return;
     }
-    if (!this.contactName().trim() || !this.invoiceNumber().trim() || !this.accountCode().trim()) {
-      return 'Contact name, invoice number and account code are required.';
+    const earningsRates = this.trimmedEarningsRates();
+    const usedPayTypes = new Set(
+      completedEntries(this.entries()).map((entry) => entry.task?.payType ?? 'hourly'),
+    );
+    if (this.payTypes.some((type) => usedPayTypes.has(type.value) && !earningsRates[type.value])) {
+      this.errorMessage.set('An earnings rate is required for each pay type used in this report.');
+      return;
     }
-    if (!this.taxType().trim()) {
-      return 'Tax type is required.';
+    this.errorMessage.set(null);
+    downloadTextFile(
+      `xero-timesheets${this.fileSuffix()}.csv`,
+      buildXeroTimesheetCsv(this.entries(), { earningsRates }),
+    );
+  }
+
+  private trimmedEarningsRates(): Record<PayType, string> {
+    const rates = { ...this.earningsRates() };
+    for (const type of this.payTypes) {
+      rates[type.value] = rates[type.value].trim();
     }
-    if (!this.invoiceDate() || !this.dueDate() || this.dueDate() < this.invoiceDate()) {
-      return 'Enter an invoice date and a due date on or after it.';
-    }
-    const rate = this.hourlyRate();
-    if (rate === null || !Number.isFinite(rate) || rate < 0) {
-      return 'Enter an hourly rate of 0 or more.';
-    }
-    return null;
+    return rates;
   }
 
   private fileSuffix(): string {
     return this.startDate() && this.endDate() ? `_${this.startDate()}_to_${this.endDate()}` : '';
-  }
-
-  private defaultDueDate(): string {
-    const due = new Date();
-    due.setDate(due.getDate() + DEFAULT_PAYMENT_TERM_DAYS);
-    return localDateKey(due);
   }
 }

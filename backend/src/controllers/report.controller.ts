@@ -38,7 +38,7 @@ export const listReportTimeEntries = asyncHandler(async (req: Request, res: Resp
       {
         model: Task,
         as: 'task',
-        attributes: ['id', 'name'],
+        attributes: ['id', 'name', 'payType'],
         required: false,
       },
       {

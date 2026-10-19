@@ -44,19 +44,20 @@
   font-size: 0.85rem;
 }
 
-.xero-fields {
+.xero-rates {
   display: grid;
-  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-sm);
   width: 100%;
+}
 
-  label {
-    display: grid;
-    gap: var(--space-xs);
-    color: var(--color-text-muted);
-    font-size: 0.82rem;
-    font-weight: 600;
-  }
+.xero-field {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
 
   input {
     width: 100%;
@@ -79,7 +80,7 @@
 }
 
 @media (max-width: 900px) {
-  .xero-fields {
+  .xero-rates {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

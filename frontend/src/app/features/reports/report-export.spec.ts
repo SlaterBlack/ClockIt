@@ -1,10 +1,18 @@
+import type { PayType } from '../../core/models/pay-type.model';
 import type { TimeEntry } from '../../core/models/time-entry.model';
 import {
   buildReportCsv,
-  buildXeroInvoiceCsv,
+  buildXeroTimesheetCsv,
+  completedEntries,
   entryDurationSeconds,
-  invoiceableEntries,
 } from './report-export';
+
+const RATES: Record<PayType, string> = {
+  hourly: 'Ordinary Hours',
+  'public-holiday': 'Public Holiday',
+  'sick-leave': 'Personal Leave',
+  'annual-leave': 'Annual Leave',
+};
 
 function makeEntry(overrides: Partial<TimeEntry> = {}): TimeEntry {
   return {
@@ -58,49 +66,58 @@ describe('report export helpers', () => {
     expect(csv).toContain(`"'=HYPERLINK(""http://evil"")"`);
   });
 
-  it('only invoices completed billable entries', () => {
-    const entries = [
-      makeEntry({ id: 'a' }),
-      makeEntry({ id: 'b', isBillable: false }),
-      makeEntry({ id: 'c', endTime: null }),
-    ];
+  it('only exports completed entries to payroll', () => {
+    const entries = [makeEntry({ id: 'a' }), makeEntry({ id: 'b', endTime: null })];
 
-    expect(invoiceableEntries(entries).map((entry) => entry.id)).toEqual(['a']);
+    expect(completedEntries(entries).map((entry) => entry.id)).toEqual(['a']);
   });
 
-  it('groups invoiceable time by project and task into Xero invoice lines', () => {
-    const csv = buildXeroInvoiceCsv(
+  it('totals completed hours per employee, day and pay type for Xero payroll timesheets', () => {
+    const nextDay = (hour: number) => new Date(2026, 9, 20, hour).toISOString();
+    const sickTask = { id: 't2', name: 'Out sick', payType: 'sick-leave' as const };
+    const csv = buildXeroTimesheetCsv(
       [
         makeEntry({ id: 'a' }),
         makeEntry({ id: 'b', durationSeconds: 1800 }),
+        makeEntry({ id: 'c', isBillable: false, durationSeconds: 3600, task: sickTask }),
+        makeEntry({ id: 'd', startTime: nextDay(9), endTime: nextDay(12), durationSeconds: 10800 }),
         makeEntry({
-          id: 'c',
-          taskId: 't2',
-          task: { id: 't2', name: 'Build' },
-          durationSeconds: 3600,
+          id: 'e',
+          userId: 'u2',
+          user: { id: 'u2', name: 'Blake Roe' },
+          durationSeconds: 7200,
+          task: null,
         }),
-        makeEntry({ id: 'd', isBillable: false }),
+        makeEntry({ id: 'f', endTime: null }),
       ],
-      {
-        contactName: 'Acme Ltd',
-        invoiceNumber: 'INV-001',
-        invoiceDate: '2026-10-31',
-        dueDate: '2026-11-30',
-        hourlyRate: 85,
-        accountCode: '200',
-        taxType: 'Tax Exempt',
-        reference: '2026-10-19 to 2026-10-25',
-      },
+      { earningsRates: RATES },
     );
     const lines = csv.replace('\uFEFF', '').trim().split('\r\n');
 
-    expect(lines[0]).toBe(
-      '*ContactName,*InvoiceNumber,Reference,*InvoiceDate,*DueDate,*Description,*Quantity,*UnitAmount,*AccountCode,*TaxType',
+    expect(lines).toEqual([
+      'Employee,Date,Earnings Rate,Hours',
+      'Alex Doe,19/10/2026,Ordinary Hours,2.00',
+      'Alex Doe,19/10/2026,Personal Leave,1.00',
+      'Alex Doe,20/10/2026,Ordinary Hours,3.00',
+      'Blake Roe,19/10/2026,Ordinary Hours,2.00',
+    ]);
+  });
+
+  it('merges pay types that map to the same earnings rate name', () => {
+    const csv = buildXeroTimesheetCsv(
+      [
+        makeEntry({ id: 'a' }),
+        makeEntry({
+          id: 'b',
+          task: { id: 't2', name: 'Holiday', payType: 'public-holiday' },
+        }),
+      ],
+      { earningsRates: { ...RATES, 'public-holiday': 'Ordinary Hours' } },
     );
-    expect(lines).toHaveLength(3);
-    expect(lines[1]).toBe(
-      'Acme Ltd,INV-001,2026-10-19 to 2026-10-25,31/10/2026,30/11/2026,Website - Build,1.00,85.00,200,Tax Exempt',
-    );
-    expect(lines[2]).toContain('Website - Design,2.00,85.00');
+
+    expect(csv.replace('\uFEFF', '').trim().split('\r\n')).toEqual([
+      'Employee,Date,Earnings Rate,Hours',
+      'Alex Doe,19/10/2026,Ordinary Hours,3.00',
+    ]);
   });
 });

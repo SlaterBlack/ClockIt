@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Project, Task, TimeEntry, Workspace } from "../models";
+import { PAY_TYPES, PayType } from "../models/Task";
 import { ApiError } from "../utils/ApiError";
 import { asyncHandler } from "../utils/asyncHandler";
 
@@ -44,6 +45,16 @@ function validateName(
     throw new ApiError(400, tooLongMessage);
   }
   return name;
+}
+
+function validatePayType(value: unknown): PayType | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string" || !PAY_TYPES.includes(value as PayType)) {
+    throw new ApiError(400, `payType must be one of: ${PAY_TYPES.join(", ")}`);
+  }
+  return value as PayType;
 }
 
 async function findProjectTask(
@@ -190,12 +201,14 @@ export const createProjectTask = asyncHandler(
   async (req: Request, res: Response) => {
     const project = await findOwnedProject(req.params.projectId, req.user!.id);
 
-    const { name } = req.body as { name?: string };
+    const { name, payType } = req.body as { name?: string; payType?: unknown };
     const trimmedName = validateName(name, "name is required");
+    const validPayType = validatePayType(payType);
 
     const task = await Task.create({
       name: trimmedName,
       projectId: project.id,
+      ...(validPayType ? { payType: validPayType } : {}),
     });
     res.status(201).json({ task });
   },
@@ -207,13 +220,15 @@ export const updateProjectTask = asyncHandler(
 
     const task = await findProjectTask(project.id, req.params.taskId);
 
-    const { name } = req.body as { name?: string };
+    const { name, payType } = req.body as { name?: string; payType?: unknown };
+    const validPayType = validatePayType(payType);
     await task.update({
       name: validateName(
         name,
         "name must be between 1 and 120 characters",
         "name must be between 1 and 120 characters",
       ),
+      ...(validPayType ? { payType: validPayType } : {}),
     });
     res.json({ task });
   },

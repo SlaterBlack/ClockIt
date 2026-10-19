@@ -30,10 +30,11 @@ src/
 
 1. Copy `.env.example` to `.env` (already done for local development) and adjust values, especially `DB_*` and `JWT_SECRET`.
 2. Create the PostgreSQL database named in `DB_NAME` (defaults to `clockify_dupe`).
-3. For an existing production database, apply both schema migrations before deployment:
+3. For an existing production database, apply the schema migrations before deployment:
    ```powershell
    psql -U postgres -d clockify_dupe -f migrations/20261019-add-project-tasks.sql
    psql -U postgres -d clockify_dupe -f migrations/20261019-add-project-numbers.sql
+   psql -U postgres -d clockify_dupe -f migrations/20261019-add-task-pay-type.sql
    ```
 4. Install dependencies:
    ```powershell
@@ -69,8 +70,8 @@ All routes are mounted under `/api`. New projects require a three-digit `project
 | PATCH  | `/projects/:id`            | Yes  | Update project details or color      |
 | DELETE | `/projects/:id`           | Yes  | Delete a project                    |
 | GET    | `/projects/:projectId/tasks` | Yes | List tasks for a project          |
-| POST   | `/projects/:projectId/tasks` | Yes | Create a task in a project        |
-| PATCH  | `/projects/:projectId/tasks/:taskId` | Yes | Update a task name            |
+| POST   | `/projects/:projectId/tasks` | Yes | Create a task in a project; optional `payType` (`hourly` default, `public-holiday`, `sick-leave`, `annual-leave`) |
+| PATCH  | `/projects/:projectId/tasks/:taskId` | Yes | Update a task name and/or `payType`            |
 | DELETE | `/projects/:projectId/tasks/:taskId` | Yes | Delete an unused task      |
 | GET    | `/time-entries`           | Yes  | List the caller's time entries      |
 | POST   | `/time-entries/start`     | Yes  | Start a timer (requires `taskId`)   |

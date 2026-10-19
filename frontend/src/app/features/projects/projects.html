@@ -192,6 +192,22 @@
                           [ngModel]="task.editedName"
                           (ngModelChange)="setEditedTaskName(project.id, task.id, $event)"
                         />
+                        <select
+                          [attr.aria-label]="'Pay type for task ' + task.name"
+                          [value]="task.editedPayType"
+                          (change)="
+                            setEditedTaskPayType(project.id, task.id, $any($event.target).value)
+                          "
+                        >
+                          @for (type of payTypes; track type.value) {
+                            <option
+                              [value]="type.value"
+                              [selected]="type.value === task.editedPayType"
+                            >
+                              {{ type.label }}
+                            </option>
+                          }
+                        </select>
                         <button
                           class="btn btn-primary"
                           type="button"
@@ -209,6 +225,7 @@
                       </div>
                     } @else {
                       <span class="task-name">{{ task.name }}</span>
+                      <span class="task-pay-type">{{ payTypeLabel(task.payType) }}</span>
                       <div class="task-options">
                         <button
                           class="project-options-trigger task-options-trigger btn btn-secondary"
@@ -258,6 +275,17 @@
                   [attr.aria-label]="'New task for ' + project.name"
                   placeholder="New task name"
                 />
+                <select
+                  [attr.aria-label]="'Pay type for new task in ' + project.name"
+                  [value]="project.newTaskPayType"
+                  (change)="setNewTaskPayType(project.id, $any($event.target).value)"
+                >
+                  @for (type of payTypes; track type.value) {
+                    <option [value]="type.value" [selected]="type.value === project.newTaskPayType">
+                      {{ type.label }}
+                    </option>
+                  }
+                </select>
                 <button class="btn btn-primary" type="button" (click)="createTask(project.id)">
                   Add task
                 </button>

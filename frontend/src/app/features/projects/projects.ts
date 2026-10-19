@@ -7,16 +7,19 @@ import { Workspace as WorkspaceService } from '../../core/services/workspace';
 import type { Project as ProjectDto } from '../../core/models/project.model';
 import type { Task as TaskDto } from '../../core/models/task.model';
 import type { Workspace as WorkspaceDto } from '../../core/models/workspace.model';
+import { PAY_TYPES, payTypeLabel, type PayType } from '../../core/models/pay-type.model';
 
 interface TaskView extends TaskDto {
   editingDetails: boolean;
   editedName: string;
+  editedPayType: PayType;
   detailsError: string | null;
 }
 
 interface ProjectView extends ProjectDto {
   tasks: TaskView[];
   newTaskName: string;
+  newTaskPayType: PayType;
   taskError: string | null;
   colorError: string | null;
   editingDetails: boolean;
@@ -46,6 +49,8 @@ export class Projects implements OnInit {
   readonly expandedProjectIds = signal<ReadonlySet<string>>(new Set());
   readonly openProjectMenuId = signal<string | null>(null);
   readonly openTaskMenuId = signal<string | null>(null);
+  readonly payTypes = PAY_TYPES;
+  readonly payTypeLabel = payTypeLabel;
   readonly projectColorOptions = [
     { name: 'Terminal green', value: '#2D6A4F' },
     { name: 'Deep moss', value: '#1E3A2F' },
@@ -288,6 +293,14 @@ export class Projects implements OnInit {
     this.updateProject(projectId, (project) => ({ ...project, newTaskName: name }));
   }
 
+  setNewTaskPayType(projectId: string, payType: PayType): void {
+    this.updateProject(projectId, (project) => ({ ...project, newTaskPayType: payType }));
+  }
+
+  setEditedTaskPayType(projectId: string, taskId: string, payType: PayType): void {
+    this.updateTask(projectId, taskId, (task) => ({ ...task, editedPayType: payType }));
+  }
+
   createTask(projectId: string): void {
     const project = this.projects().find((item) => item.id === projectId);
     const name = project?.newTaskName.trim();
@@ -299,12 +312,13 @@ export class Projects implements OnInit {
       return;
     }
 
-    this.taskService.create(projectId, name).subscribe({
+    this.taskService.create(projectId, name, project!.newTaskPayType).subscribe({
       next: ({ task }) =>
         this.updateProject(projectId, (item) => ({
           ...item,
           tasks: this.sortTasks([...item.tasks, this.toTaskView(task)]),
           newTaskName: '',
+          newTaskPayType: 'hourly',
           taskError: null,
         })),
       error: () =>
@@ -321,7 +335,13 @@ export class Projects implements OnInit {
       ...project,
       tasks: project.tasks.map((task) =>
         task.id === taskId
-          ? { ...task, editingDetails: true, editedName: task.name, detailsError: null }
+          ? {
+              ...task,
+              editingDetails: true,
+              editedName: task.name,
+              editedPayType: task.payType,
+              detailsError: null,
+            }
           : task,
       ),
     }));
@@ -360,14 +380,20 @@ export class Projects implements OnInit {
     }
 
     this.updateTask(projectId, taskId, (item) => ({ ...item, detailsError: null }));
-    this.taskService.update(projectId, taskId, name).subscribe({
+    this.taskService.update(projectId, taskId, name, task.editedPayType).subscribe({
       next: ({ task: updatedTask }) =>
         this.updateProject(projectId, (project) => ({
           ...project,
           tasks: this.sortTasks(
             project.tasks.map((item) =>
               item.id === taskId
-                ? { ...item, ...updatedTask, editingDetails: false, editedName: updatedTask.name }
+                ? {
+                    ...item,
+                    ...updatedTask,
+                    editingDetails: false,
+                    editedName: updatedTask.name,
+                    editedPayType: updatedTask.payType,
+                  }
                 : item,
             ),
           ),
@@ -410,6 +436,7 @@ export class Projects implements OnInit {
           ...project,
           tasks: (project.tasks ?? []).map((task) => this.toTaskView(task)),
           newTaskName: '',
+          newTaskPayType: 'hourly' as PayType,
           taskError: null,
           colorError: null,
           editingDetails: false,
@@ -439,7 +466,14 @@ export class Projects implements OnInit {
   }
 
   private toTaskView(task: TaskDto): TaskView {
-    return { ...task, editingDetails: false, editedName: task.name, detailsError: null };
+    return {
+      ...task,
+      payType: task.payType ?? 'hourly',
+      editingDetails: false,
+      editedName: task.name,
+      editedPayType: task.payType ?? 'hourly',
+      detailsError: null,
+    };
   }
 
   private sortTasks(tasks: TaskView[]): TaskView[] {

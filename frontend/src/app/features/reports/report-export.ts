@@ -1,14 +1,8 @@
+import type { PayType } from '../../core/models/pay-type.model';
 import type { TimeEntry } from '../../core/models/time-entry.model';
 
-export interface XeroInvoiceOptions {
-  contactName: string;
-  invoiceNumber: string;
-  invoiceDate: string;
-  dueDate: string;
-  hourlyRate: number;
-  accountCode: string;
-  taxType: string;
-  reference: string;
+export interface XeroTimesheetOptions {
+  earningsRates: Record<PayType, string>;
 }
 
 const CSV_BOM = '\uFEFF';
@@ -96,9 +90,9 @@ export function buildReportCsv(entries: TimeEntry[], now: number): string {
   return toCsv(rows);
 }
 
-// Only finished, billable entries can be invoiced.
-export function invoiceableEntries(entries: TimeEntry[]): TimeEntry[] {
-  return entries.filter((entry) => entry.isBillable && entry.endTime);
+// Payroll only counts finished entries; a running timer has no final hours yet.
+export function completedEntries(entries: TimeEntry[]): TimeEntry[] {
+  return entries.filter((entry) => entry.endTime);
 }
 
 function xeroDate(dateKey: string): string {
@@ -106,46 +100,35 @@ function xeroDate(dateKey: string): string {
   return `${day}/${month}/${year}`;
 }
 
-export function buildXeroInvoiceCsv(entries: TimeEntry[], options: XeroInvoiceOptions): string {
-  const lines = new Map<string, { description: string; seconds: number }>();
-  for (const entry of invoiceableEntries(entries)) {
-    const key = `${entry.projectId ?? ''}|${entry.taskId ?? ''}`;
-    const line = lines.get(key) ?? {
-      description: [entry.project?.name, entry.task?.name].filter(Boolean).join(' - ') || 'Time',
-      seconds: 0,
-    };
-    line.seconds += entryDurationSeconds(entry, 0);
-    lines.set(key, line);
+// One row per employee, day and earnings rate, with all completed entries summed.
+export function buildXeroTimesheetCsv(entries: TimeEntry[], options: XeroTimesheetOptions): string {
+  const days = new Map<
+    string,
+    { employee: string; date: string; earningsRate: string; seconds: number }
+  >();
+  for (const entry of completedEntries(entries)) {
+    const employee = entry.user?.name ?? '';
+    const date = localDateKey(new Date(entry.startTime));
+    const earningsRate = options.earningsRates[entry.task?.payType ?? 'hourly'];
+    const key = `${entry.userId}|${date}|${earningsRate}`;
+    const day = days.get(key) ?? { employee, date, earningsRate, seconds: 0 };
+    day.seconds += entryDurationSeconds(entry, 0);
+    days.set(key, day);
   }
 
-  const rows: (string | number)[][] = [
-    [
-      '*ContactName',
-      '*InvoiceNumber',
-      'Reference',
-      '*InvoiceDate',
-      '*DueDate',
-      '*Description',
-      '*Quantity',
-      '*UnitAmount',
-      '*AccountCode',
-      '*TaxType',
-    ],
-  ];
-  for (const line of [...lines.values()].sort((a, b) =>
-    a.description.localeCompare(b.description),
-  )) {
+  const rows: (string | number)[][] = [['Employee', 'Date', 'Earnings Rate', 'Hours']];
+  const sortedDays = [...days.values()].sort(
+    (a, b) =>
+      a.employee.localeCompare(b.employee) ||
+      a.date.localeCompare(b.date) ||
+      a.earningsRate.localeCompare(b.earningsRate),
+  );
+  for (const day of sortedDays) {
     rows.push([
-      safeText(options.contactName),
-      safeText(options.invoiceNumber),
-      safeText(options.reference),
-      xeroDate(options.invoiceDate),
-      xeroDate(options.dueDate),
-      safeText(line.description),
-      (line.seconds / 3600).toFixed(2),
-      options.hourlyRate.toFixed(2),
-      safeText(options.accountCode),
-      safeText(options.taxType),
+      safeText(day.employee),
+      xeroDate(day.date),
+      safeText(day.earningsRate),
+      (day.seconds / 3600).toFixed(2),
     ]);
   }
   return toCsv(rows);

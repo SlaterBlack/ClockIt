@@ -166,15 +166,39 @@ describe('Projects', () => {
     ) as HTMLButtonElement;
     editButton.click();
     component.setEditedTaskName('p1', 't1', 'Design planning');
+    component.setEditedTaskPayType('p1', 't1', 'annual-leave');
     component.saveTaskDetails('p1', 't1');
 
     const request = httpMock.expectOne(
       (req) => req.method === 'PATCH' && req.url.endsWith('/projects/p1/tasks/t1'),
     );
-    expect(request.request.body).toEqual({ name: 'Design planning' });
-    request.flush({ task: { id: 't1', name: 'Design planning', projectId: 'p1' } });
+    expect(request.request.body).toEqual({ name: 'Design planning', payType: 'annual-leave' });
+    request.flush({
+      task: { id: 't1', name: 'Design planning', projectId: 'p1', payType: 'annual-leave' },
+    });
 
     expect(component.projects()[0].tasks[0].name).toBe('Design planning');
+    expect(component.projects()[0].tasks[0].payType).toBe('annual-leave');
+  });
+
+  it('creates tasks with the selected pay type', () => {
+    const project = makeProject('p1', '001', 'Example project');
+    component.projects.set([project]);
+    component.setNewTaskName('p1', 'Public holiday');
+    component.setNewTaskPayType('p1', 'public-holiday');
+
+    component.createTask('p1');
+
+    const request = httpMock.expectOne(
+      (req) => req.method === 'POST' && req.url.endsWith('/projects/p1/tasks'),
+    );
+    expect(request.request.body).toEqual({ name: 'Public holiday', payType: 'public-holiday' });
+    request.flush({
+      task: { id: 't9', name: 'Public holiday', projectId: 'p1', payType: 'public-holiday' },
+    });
+
+    expect(component.projects()[0].tasks[0].payType).toBe('public-holiday');
+    expect(component.projects()[0].newTaskPayType).toBe('hourly');
   });
 
   it('closes color, project, and task popups after clicking outside them', () => {
@@ -219,10 +243,12 @@ describe('Projects', () => {
       id,
       name,
       projectId: 'p1',
+      payType: 'hourly' as const,
       createdAt: '',
       updatedAt: '',
       editingDetails: false,
       editedName: name,
+      editedPayType: 'hourly' as const,
       detailsError: null,
     };
   }
@@ -239,6 +265,7 @@ describe('Projects', () => {
       updatedAt: '',
       tasks: [] as Array<ReturnType<typeof makeTask>>,
       newTaskName: '',
+      newTaskPayType: 'hourly' as const,
       taskError: null,
       colorError: null,
       editingDetails: false,

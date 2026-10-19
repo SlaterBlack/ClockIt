@@ -19,80 +19,34 @@
         [attr.aria-expanded]="isXeroOpen()"
         (click)="toggleXero()"
       >
-        Export to Xero
+        Export to Xero payroll
       </button>
     </div>
   </div>
 
   @if (isXeroOpen()) {
-    <form class="xero-form" aria-label="Xero invoice export" (ngSubmit)="exportXero()">
+    <form class="xero-form" aria-label="Xero payroll timesheet export" (ngSubmit)="exportXero()">
       <p class="xero-note">
-        Creates a Xero invoice import file with one line per project and task, using completed
-        billable entries ({{ invoiceableCount() }} in this report).
+        Creates a payroll timesheet file with one row per employee, day and pay type (set on each
+        task), totalling completed entries ({{ completedCount() }} entries,
+        {{ employeeCount() }} employees in this report).
       </p>
-      <div class="xero-fields">
-        <label>
-          Contact name
-          <input
-            name="contactName"
-            [ngModel]="contactName()"
-            (ngModelChange)="contactName.set($event)"
-          />
-        </label>
-        <label>
-          Invoice number
-          <input
-            name="invoiceNumber"
-            [ngModel]="invoiceNumber()"
-            (ngModelChange)="invoiceNumber.set($event)"
-          />
-        </label>
-        <label>
-          Invoice date
-          <input
-            name="invoiceDate"
-            type="date"
-            [ngModel]="invoiceDate()"
-            (ngModelChange)="invoiceDate.set($event)"
-          />
-        </label>
-        <label>
-          Due date
-          <input
-            name="dueDate"
-            type="date"
-            [ngModel]="dueDate()"
-            (ngModelChange)="dueDate.set($event)"
-          />
-        </label>
-        <label>
-          Hourly rate
-          <input
-            name="hourlyRate"
-            type="number"
-            min="0"
-            step="0.01"
-            [ngModel]="hourlyRate()"
-            (ngModelChange)="hourlyRate.set($event)"
-          />
-        </label>
-        <label>
-          Account code
-          <input
-            name="accountCode"
-            [ngModel]="accountCode()"
-            (ngModelChange)="accountCode.set($event)"
-          />
-        </label>
-        <label>
-          Tax type
-          <input name="taxType" [ngModel]="taxType()" (ngModelChange)="taxType.set($event)" />
-        </label>
+      <div class="xero-rates">
+        @for (type of payTypes; track type.value) {
+          <label class="xero-field">
+            {{ type.label }} earnings rate
+            <input
+              [name]="'rate-' + type.value"
+              [ngModel]="earningsRates()[type.value]"
+              (ngModelChange)="setEarningsRate(type.value, $event)"
+            />
+          </label>
+        }
       </div>
       @if (errorMessage(); as error) {
         <p class="error-text" role="alert">{{ error }}</p>
       }
-      <button class="btn btn-primary" type="submit">Download Xero CSV</button>
+      <button class="btn btn-primary" type="submit">Download timesheet CSV</button>
     </form>
   }
 </section>
