@@ -74,8 +74,8 @@ All routes are mounted under `/api`. New projects require a three-digit `project
 | DELETE | `/projects/:projectId/tasks/:taskId` | Yes | Delete an unused task      |
 | GET    | `/time-entries`           | Yes  | List the caller's time entries      |
 | POST   | `/time-entries/start`     | Yes  | Start a timer (requires `taskId`)   |
-| POST   | `/time-entries/:id/stop`  | Yes  | Stop a running timer                |
-| PATCH  | `/time-entries/:id`       | Yes  | Update a time entry                 |
+| POST   | `/time-entries/:id/stop`  | Yes  | Stop a running timer; optionally save `taskId` and `startTime` with the stop |
+| PATCH  | `/time-entries/:id`       | Yes  | Update description, task/project, billable status, start/end; recalculates duration |
 | DELETE | `/time-entries/:id`       | Yes  | Delete a time entry                 |
 
 Authenticated routes expect `Authorization: Bearer <token>`.

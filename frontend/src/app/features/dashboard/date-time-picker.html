@@ -1,0 +1,102 @@
+<div class="date-time-picker" [class.align-right]="alignRight" [class.time-only-picker]="timeOnly">
+  <span class="date-time-label">{{ label }}</span>
+  <div class="date-time-controls">
+    @if (!timeOnly) {
+      <button
+        class="date-time-trigger date-trigger"
+        type="button"
+        [attr.aria-label]="ariaLabel + ', date'"
+        [attr.aria-expanded]="openPickerType() === 'date'"
+        aria-haspopup="dialog"
+        (click)="openPickerType() === 'date' ? closePicker() : openDatePicker()"
+      >
+        {{ displayDate() }}
+      </button>
+    }
+    <button
+      class="date-time-trigger time-trigger"
+      type="button"
+      [attr.aria-label]="ariaLabel + ', time'"
+      [attr.aria-expanded]="openPickerType() === 'time'"
+      aria-haspopup="dialog"
+      (click)="openPickerType() === 'time' ? closePicker() : openTimePicker()"
+    >
+      {{ displayTime() }}
+    </button>
+  </div>
+
+  @if (openPickerType() === 'date') {
+    <div class="date-time-popover calendar-popover" role="dialog" [attr.aria-label]="ariaLabel + ', date'">
+      <div class="calendar-header">
+        <button
+          class="calendar-nav btn btn-secondary"
+          type="button"
+          aria-label="Previous month"
+          (click)="moveMonth(-1)"
+        >
+          &lsaquo;
+        </button>
+        <strong>{{ monthLabel() }}</strong>
+        <button class="calendar-nav btn btn-secondary" type="button" aria-label="Next month" (click)="moveMonth(1)">
+          &rsaquo;
+        </button>
+      </div>
+
+      <div class="calendar-grid" aria-label="Calendar dates">
+        @for (weekday of weekdays; track weekday) {
+          <span class="calendar-weekday">{{ weekday }}</span>
+        }
+        @for (day of calendarDays(); track formatDate(day.date)) {
+          <button
+            class="calendar-day"
+            [class.other-month]="!day.inDisplayedMonth"
+            [class.selected]="isSelectedDate(day.date)"
+            type="button"
+            [attr.aria-label]="day.date.toDateString()"
+            [attr.aria-pressed]="isSelectedDate(day.date)"
+            [attr.data-date]="formatDate(day.date)"
+            (click)="selectDate(day.date)"
+          >
+            {{ day.date.getDate() }}
+          </button>
+        }
+      </div>
+
+      <div class="date-time-actions">
+        <button class="btn btn-secondary" type="button" (click)="closePicker()">Cancel</button>
+        <button class="btn btn-primary" type="button" (click)="applyDate()">Apply date</button>
+      </div>
+    </div>
+  }
+
+  @if (openPickerType() === 'time') {
+    <div class="date-time-popover time-popover" role="dialog" [attr.aria-label]="ariaLabel + ', time'">
+      <div class="time-selection">
+        <label>
+          Hour
+          <select [value]="selectedHour()" aria-label="Hour" (change)="onHourChange($event)">
+            @for (hour of hours; track hour) {
+              <option [value]="hour">{{ hour }}</option>
+            }
+          </select>
+        </label>
+        <span class="time-separator">:</span>
+        <label>
+          Minute
+          <select [value]="selectedMinute()" aria-label="Minute" (change)="onMinuteChange($event)">
+            @for (minute of minutes; track minute) {
+              <option [value]="minute">{{ minute }}</option>
+            }
+          </select>
+        </label>
+      </div>
+      <div class="date-time-actions">
+        @if (clearable && value) {
+          <button class="btn btn-secondary clear-time" type="button" (click)="clearSelection()">Clear</button>
+        }
+        <button class="btn btn-secondary" type="button" (click)="closePicker()">Cancel</button>
+        <button class="btn btn-primary" type="button" (click)="applyTime()">Apply time</button>
+      </div>
+    </div>
+  }
+</div>

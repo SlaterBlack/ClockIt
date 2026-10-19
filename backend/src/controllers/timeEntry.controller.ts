@@ -7,7 +7,20 @@ import { asyncHandler } from '../utils/asyncHandler';
 export const listTimeEntries = asyncHandler(async (req: Request, res: Response) => {
   const timeEntries = await TimeEntry.findAll({
     where: { userId: req.user?.id },
-    include: [{ model: Task, as: 'task', attributes: ['id', 'name'], required: false }],
+    include: [
+      {
+        model: Task,
+        as: 'task',
+        attributes: ['id', 'name'],
+        required: false,
+      },
+      {
+        model: Project,
+        as: 'project',
+        attributes: ['id', 'name', 'projectNumber'],
+        required: false,
+      },
+    ],
     order: [['startTime', 'DESC']],
   });
   res.json({ timeEntries });
@@ -77,14 +90,28 @@ export const stopTimeEntry = asyncHandler(async (req: Request, res: Response) =>
   if (timeEntry.endTime) {
     throw new ApiError(409, 'Time entry is already stopped');
   }
-  if (!timeEntry.taskId) {
+  const { taskId, startTime } = (req.body ?? {}) as { taskId?: unknown; startTime?: unknown };
+  const effectiveTaskId = taskId ?? timeEntry.taskId;
+  if (typeof effectiveTaskId !== 'string' || !effectiveTaskId) {
     throw new ApiError(409, 'Assign a task before stopping this timer');
   }
+  const task = await assertTaskOwnership(effectiveTaskId, req.user!.id);
+  const parsedStartTime =
+    startTime === undefined ? timeEntry.startTime : parseEntryDate(startTime, 'startTime');
 
   const endTime = new Date();
-  const durationSeconds = Math.round((endTime.getTime() - timeEntry.startTime.getTime()) / 1000);
+  if (parsedStartTime >= endTime) {
+    throw new ApiError(400, 'startTime must be before the timer end time');
+  }
+  const durationSeconds = Math.round((endTime.getTime() - parsedStartTime.getTime()) / 1000);
 
-  await timeEntry.update({ endTime, durationSeconds });
+  await timeEntry.update({
+    projectId: task.projectId,
+    taskId: task.id,
+    startTime: parsedStartTime,
+    endTime,
+    durationSeconds,
+  });
   res.json({ timeEntry });
 });
 
@@ -96,10 +123,12 @@ export const updateTimeEntry = asyncHandler(async (req: Request, res: Response) 
     throw new ApiError(404, 'Time entry not found');
   }
 
-  const { description, taskId, isBillable } = req.body as {
+  const { description, taskId, isBillable, startTime, endTime } = req.body as {
     description?: string;
     taskId?: string;
     isBillable?: boolean;
+    startTime?: string;
+    endTime?: string | null;
   };
 
   const effectiveTaskId = taskId ?? timeEntry.taskId;
@@ -108,14 +137,54 @@ export const updateTimeEntry = asyncHandler(async (req: Request, res: Response) 
   }
   const task = await assertTaskOwnership(effectiveTaskId, req.user!.id);
 
+  if (description !== undefined && (typeof description !== 'string' || description.length > 500)) {
+    throw new ApiError(400, 'description must be 500 characters or fewer');
+  }
+  if (isBillable !== undefined && typeof isBillable !== 'boolean') {
+    throw new ApiError(400, 'isBillable must be a boolean');
+  }
+
+  const parsedStartTime = startTime === undefined ? timeEntry.startTime : parseEntryDate(startTime, 'startTime');
+  const parsedEndTime =
+    endTime === undefined ? timeEntry.endTime : endTime === null ? null : parseEntryDate(endTime, 'endTime');
+  if (parsedEndTime && parsedEndTime < parsedStartTime) {
+    throw new ApiError(400, 'endTime must be after startTime');
+  }
+  if (parsedEndTime === null && timeEntry.endTime !== null) {
+    const runningEntry = await TimeEntry.findOne({
+      where: {
+        userId: req.user!.id,
+        endTime: { [Op.is]: null },
+      },
+    });
+    if (runningEntry && runningEntry.id !== timeEntry.id) {
+      throw new ApiError(409, 'A time entry is already running.');
+    }
+  }
+
   await timeEntry.update({
-    description,
+    ...(description !== undefined ? { description } : {}),
     taskId: task.id,
     projectId: task.projectId,
-    isBillable,
+    ...(isBillable !== undefined ? { isBillable } : {}),
+    startTime: parsedStartTime,
+    endTime: parsedEndTime,
+    durationSeconds: parsedEndTime ? Math.round((parsedEndTime.getTime() - parsedStartTime.getTime()) / 1000) : null,
   });
   res.json({ timeEntry });
 });
+
+function parseEntryDate(value: unknown, field: string): Date {
+  if (typeof value !== 'string') {
+    throw new ApiError(400, `${field} must be a valid date`);
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new ApiError(400, `${field} must be a valid date`);
+  }
+  return parsed;
+}
 
 export const deleteTimeEntry = asyncHandler(async (req: Request, res: Response) => {
   const deleted = await TimeEntry.destroy({

@@ -1,22 +1,12 @@
 <h1>Time Tracker</h1>
 
-<div class="card timer-card">
-  @if (runningEntry(); as running) {
-    <p class="timer-status">
-      Tracking: <strong>{{ running.description || '(no description)' }}</strong>
-      @if (running.taskId) {
-        <span>Task: {{ running.task?.name || 'Assigned' }}</span>
-      } @else {
-        <span>This existing timer needs a task before it can be stopped.</span>
-      }
-    </p>
-    @if (running.taskId) {
-      <button class="btn btn-danger" type="button" (click)="stopTimer()">Stop</button>
-    } @else {
+<div class="card timer-card" [class.timer-card-running]="runningEntry()">
+  @if (runningEntry()) {
+    <div class="running-timer-left">
       <select
-        [ngModel]="selectedProjectId()"
-        (ngModelChange)="onProjectChange($event)"
-        aria-label="Project"
+        [ngModel]="runningTimerEdit()?.projectId"
+        (ngModelChange)="onRunningProjectChange($event)"
+        aria-label="Project for running timer"
       >
         <option value="">Select project</option>
         @for (project of projects(); track project.id) {
@@ -26,25 +16,37 @@
         }
       </select>
       <select
-        [ngModel]="selectedTaskId()"
-        (ngModelChange)="selectedTaskId.set($event)"
-        [disabled]="!selectedProjectId() || tasks().length === 0"
-        aria-label="Task"
+        [ngModel]="runningTimerEdit()?.taskId"
+        (ngModelChange)="updateRunningTimerDraft({ taskId: $event })"
+        [disabled]="!runningTimerEdit()?.projectId || runningTasks().length === 0"
+        aria-label="Task for running timer"
       >
         <option value="">Select task</option>
-        @for (task of tasks(); track task.id) {
+        @for (task of runningTasks(); track task.id) {
           <option [value]="task.id">{{ task.name }}</option>
         }
       </select>
+      <app-date-time-picker
+        class="timer-start-time"
+        label="Start time:"
+        ariaLabel="Start time for running timer"
+        [timeOnly]="true"
+        [value]="runningTimerEdit()?.startTime ?? ''"
+        (valueChange)="updateRunningTimerDraft({ startTime: $event })"
+      />
+    </div>
+    <div class="running-timer-right">
+      <span class="running-time-label">Running time</span>
+      <time class="running-time-value">{{ runningDuration() }}</time>
       <button
-        class="btn btn-primary"
+        class="btn btn-danger"
         type="button"
-        (click)="assignTaskToRunningTimer()"
-        [disabled]="!selectedTaskId()"
+        (click)="endAndSaveRunningTimer()"
+        [disabled]="!runningTimerEdit()?.taskId || isSubmitting()"
       >
-        Assign task
+        End
       </button>
-    }
+    </div>
   } @else {
     <input
       class="timer-input"
@@ -53,11 +55,7 @@
       [ngModel]="description()"
       (ngModelChange)="description.set($event)"
     />
-    <select
-      [ngModel]="selectedProjectId()"
-      (ngModelChange)="onProjectChange($event)"
-      aria-label="Project"
-    >
+    <select [ngModel]="selectedProjectId()" (ngModelChange)="onProjectChange($event)" aria-label="Project">
       <option value="">Select project</option>
       @for (project of projects(); track project.id) {
         <option [value]="project.id">
@@ -92,31 +90,127 @@
 }
 
 <h2>Recent entries</h2>
-<div class="card">
-  @if (timeEntries().length === 0) {
-    <p>No time entries yet. Start your first timer above.</p>
-  } @else {
-    <table class="entries-table">
-      <thead>
-        <tr>
-          <th>Description</th>
-          <th>Task</th>
-          <th>Start</th>
-          <th>End</th>
-          <th>Duration</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (entry of timeEntries(); track entry.id) {
-          <tr>
-            <td>{{ entry.description || '—' }}</td>
-            <td>{{ entry.task?.name || '—' }}</td>
-            <td>{{ entry.startTime | date: 'short' }}</td>
-            <td>{{ entry.endTime ? (entry.endTime | date: 'short') : 'running' }}</td>
-            <td>{{ entry.durationSeconds ? (entry.durationSeconds / 60 | number: '1.0-1') + ' min' : '—' }}</td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  }
-</div>
+@if (timeEntries().length === 0) {
+  <div class="card"><p>No time entries yet. Start your first timer above.</p></div>
+} @else {
+  <div class="entry-days">
+    @for (day of entryDays(); track day.key) {
+      <section class="card entry-day">
+        <header class="entry-day-heading">
+          <h3 class="entry-day-date">{{ day.date | date: 'fullDate' }}</h3>
+          <span class="entry-day-total">{{ formatDurationSeconds(day.totalDurationSeconds) }}</span>
+        </header>
+        <div class="day-entry-list">
+          @for (entry of day.entries; track entry.id) {
+            <div class="time-entry-item">
+              <article
+                class="time-entry"
+                [class.is-editing]="editingEntry()?.id === entry.id"
+                role="button"
+                tabindex="0"
+                [attr.aria-expanded]="editingEntry()?.id === entry.id"
+                [attr.aria-label]="'Edit time entry: ' + (entry.description || entry.task?.name || 'time entry')"
+                (click)="toggleEntryEdit(entry)"
+                (keydown)="onEntryKeydown($event, entry)"
+              >
+                <div class="time-entry-details">
+                  <span class="entry-project-task">
+                    {{ entry.project?.projectNumber ? entry.project?.projectNumber + ' ' : ''
+                    }}{{ entry.project?.name || 'No project' }} -
+                    {{ entry.task?.name || 'No task' }}
+                  </span>
+                  @if (entry.description.trim()) {
+                    <span class="entry-description">{{ entry.description }}</span>
+                  }
+                  <span class="entry-time-range">
+                    {{ entry.startTime | date: 'shortTime' }}–{{
+                      entry.endTime ? (entry.endTime | date: 'shortTime') : 'Running'
+                    }}
+                  </span>
+                  <span class="entry-duration">{{ formatDuration(entry) }}</span>
+                </div>
+              </article>
+              @if (editingEntry()?.id === entry.id) {
+                <div class="entry-edit-form">
+                  <div class="entry-edit-fields">
+                    <select
+                      [ngModel]="editingEntry()?.projectId"
+                      (ngModelChange)="onEditProjectChange($event)"
+                      [attr.aria-label]="'Project for time entry'"
+                    >
+                      <option value="">Select project</option>
+                      @for (project of projects(); track project.id) {
+                        <option [value]="project.id">
+                          {{ project.projectNumber ? project.projectNumber + ' ' : '' }}{{ project.name }}
+                        </option>
+                      }
+                    </select>
+                    <select
+                      [ngModel]="editingEntry()?.taskId"
+                      (ngModelChange)="updateEntryDraft({ taskId: $event })"
+                      [disabled]="!editingEntry()?.projectId || editingTasks().length === 0"
+                      aria-label="Task for time entry"
+                    >
+                      <option value="">Select task</option>
+                      @for (task of editingTasks(); track task.id) {
+                        <option [value]="task.id">{{ task.name }}</option>
+                      }
+                    </select>
+                    <input
+                      class="entry-description-input"
+                      type="text"
+                      maxlength="500"
+                      placeholder="Description"
+                      aria-label="Time entry description"
+                      [ngModel]="editingEntry()?.description"
+                      (ngModelChange)="updateEntryDraft({ description: $event })"
+                    />
+                    <label class="entry-billable">
+                      <input
+                        type="checkbox"
+                        aria-label="Billable"
+                        [ngModel]="editingEntry()?.isBillable"
+                        (ngModelChange)="updateEntryDraft({ isBillable: $event })"
+                      />
+                      Billable
+                    </label>
+                    <div class="entry-date-time-fields">
+                      <app-date-time-picker
+                        label="Start"
+                        ariaLabel="Start date and time"
+                        [value]="editingEntry()?.startTime ?? ''"
+                        (valueChange)="updateEntryDraft({ startTime: $event })"
+                      />
+                      <app-date-time-picker
+                        label="End"
+                        ariaLabel="End date and time"
+                        [alignRight]="true"
+                        [value]="editingEntry()?.endTime ?? ''"
+                        [clearable]="true"
+                        (valueChange)="updateEntryDraft({ endTime: $event })"
+                      />
+                    </div>
+                  </div>
+                  @if (editingError(); as error) {
+                    <p class="error-text" role="alert">{{ error }}</p>
+                  }
+                  <div class="entry-edit-actions">
+                    <button
+                      class="btn btn-primary"
+                      type="button"
+                      [disabled]="isSavingEntry()"
+                      (click)="saveEntryEdit()"
+                    >
+                      Save changes
+                    </button>
+                    <button class="btn btn-secondary" type="button" (click)="cancelEntryEdit()">Cancel</button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </section>
+    }
+  </div>
+}
