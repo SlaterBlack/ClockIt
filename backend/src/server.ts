@@ -9,7 +9,7 @@ async function bootstrap(): Promise<void> {
   // Keep database schema in sync with models during development.
   // Use proper migrations (e.g. sequelize-cli) for production deployments.
   if (env.nodeEnv === 'development') {
-    await sequelize.sync();
+    await sequelize.sync({ alter: true });
   }
 
   const app = createApp();

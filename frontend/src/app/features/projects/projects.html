@@ -10,18 +10,46 @@
   <button class="btn btn-primary" type="button" (click)="createProject()">Add project</button>
 </div>
 
-<div class="card">
+<div class="project-list">
   @if (projects().length === 0) {
-    <p>No projects yet. Create your first project above.</p>
+    <div class="card"><p>No projects yet. Create your first project above.</p></div>
   } @else {
-    <ul class="project-list">
-      @for (project of projects(); track project.id) {
-        <li class="project-item">
+    @for (project of projects(); track project.id) {
+      <section class="card project-card">
+        <div class="project-heading">
           <span class="project-color" [style.background]="project.color"></span>
           <span class="project-name">{{ project.name }}</span>
           <button class="btn btn-secondary" type="button" (click)="removeProject(project.id)">Remove</button>
-        </li>
-      }
-    </ul>
+        </div>
+
+        <h2>Tasks</h2>
+        <ul class="task-list">
+          @for (task of project.tasks; track task.id) {
+            <li class="task-item">
+              <span>{{ task.name }}</span>
+              <button class="btn btn-secondary" type="button" (click)="removeTask(project.id, task.id)">
+                Remove
+              </button>
+            </li>
+          } @empty {
+            <li class="empty-tasks">No tasks for this project yet.</li>
+          }
+        </ul>
+
+        <div class="new-task-form">
+          <input
+            type="text"
+            [ngModel]="project.newTaskName"
+            (ngModelChange)="setNewTaskName(project.id, $event)"
+            [attr.aria-label]="'New task for ' + project.name"
+            placeholder="New task name"
+          />
+          <button class="btn btn-primary" type="button" (click)="createTask(project.id)">Add task</button>
+        </div>
+        @if (project.taskError; as error) {
+          <p class="error-text" role="alert">{{ error }}</p>
+        }
+      </section>
+    }
   }
 </div>

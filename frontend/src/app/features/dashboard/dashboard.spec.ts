@@ -20,7 +20,8 @@ describe('Dashboard', () => {
     httpMock = TestBed.inject(HttpTestingController);
 
     fixture.detectChanges();
-    httpMock.expectOne(() => true).flush({ timeEntries: [] });
+    httpMock.expectOne((request) => request.url.endsWith('/time-entries')).flush({ timeEntries: [] });
+    httpMock.expectOne((request) => request.url.endsWith('/workspaces')).flush({ workspaces: [] });
   });
 
   afterEach(() => {
@@ -29,5 +30,12 @@ describe('Dashboard', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('does not start a timer without a task', () => {
+    component.startTimer();
+
+    expect(component.errorMessage()).toContain('Select a project and task');
+    httpMock.expectNone((request) => request.url.endsWith('/time-entries/start'));
   });
 });

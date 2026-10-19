@@ -17,7 +17,7 @@ export class TimeEntry {
 
   start(payload: {
     description?: string;
-    projectId?: string;
+    taskId: string;
     isBillable?: boolean;
   }): Observable<{ timeEntry: TimeEntryDto }> {
     return this.http.post<{ timeEntry: TimeEntryDto }>(`${this.apiUrl}/start`, payload);
@@ -29,7 +29,7 @@ export class TimeEntry {
 
   update(
     id: string,
-    payload: Partial<Pick<TimeEntryDto, 'description' | 'projectId' | 'isBillable'>>,
+    payload: Partial<Pick<TimeEntryDto, 'description' | 'taskId' | 'isBillable'>>,
   ): Observable<{ timeEntry: TimeEntryDto }> {
     return this.http.patch<{ timeEntry: TimeEntryDto }>(`${this.apiUrl}/${id}`, payload);
   }

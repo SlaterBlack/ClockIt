@@ -2,6 +2,7 @@ import { User } from './User';
 import { Workspace } from './Workspace';
 import { Project } from './Project';
 import { TimeEntry } from './TimeEntry';
+import { Task } from './Task';
 
 // User <-> Workspace (a user owns many workspaces)
 User.hasMany(Workspace, { foreignKey: 'ownerId', as: 'workspaces' });
@@ -19,4 +20,12 @@ TimeEntry.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 Project.hasMany(TimeEntry, { foreignKey: 'projectId', as: 'timeEntries' });
 TimeEntry.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
 
-export { User, Workspace, Project, TimeEntry };
+// Project <-> Task
+Project.hasMany(Task, { foreignKey: 'projectId', as: 'tasks' });
+Task.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+
+// Task <-> TimeEntry (taskId stays nullable for entries created before task assignment was required)
+Task.hasMany(TimeEntry, { foreignKey: 'taskId', as: 'timeEntries', onDelete: 'RESTRICT' });
+TimeEntry.belongsTo(Task, { foreignKey: 'taskId', as: 'task' });
+
+export { User, Workspace, Project, Task, TimeEntry };

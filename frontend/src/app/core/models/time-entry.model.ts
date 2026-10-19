@@ -7,6 +7,8 @@ export interface TimeEntry {
   isBillable: boolean;
   userId: string;
   projectId: string | null;
+  taskId: string | null;
+  task?: { id: string; name: string } | null;
   createdAt: string;
   updatedAt: string;
 }

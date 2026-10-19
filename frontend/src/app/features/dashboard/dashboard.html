@@ -2,8 +2,47 @@
 
 <div class="card timer-card">
   @if (runningEntry(); as running) {
-    <p class="timer-status">Tracking: <strong>{{ running.description || '(no description)' }}</strong></p>
-    <button class="btn btn-danger" type="button" (click)="stopTimer()">Stop</button>
+    <p class="timer-status">
+      Tracking: <strong>{{ running.description || '(no description)' }}</strong>
+      @if (running.taskId) {
+        <span>Task: {{ running.task?.name || 'Assigned' }}</span>
+      } @else {
+        <span>This existing timer needs a task before it can be stopped.</span>
+      }
+    </p>
+    @if (running.taskId) {
+      <button class="btn btn-danger" type="button" (click)="stopTimer()">Stop</button>
+    } @else {
+      <select
+        [ngModel]="selectedProjectId()"
+        (ngModelChange)="onProjectChange($event)"
+        aria-label="Project"
+      >
+        <option value="">Select project</option>
+        @for (project of projects(); track project.id) {
+          <option [value]="project.id">{{ project.name }}</option>
+        }
+      </select>
+      <select
+        [ngModel]="selectedTaskId()"
+        (ngModelChange)="selectedTaskId.set($event)"
+        [disabled]="!selectedProjectId() || tasks().length === 0"
+        aria-label="Task"
+      >
+        <option value="">Select task</option>
+        @for (task of tasks(); track task.id) {
+          <option [value]="task.id">{{ task.name }}</option>
+        }
+      </select>
+      <button
+        class="btn btn-primary"
+        type="button"
+        (click)="assignTaskToRunningTimer()"
+        [disabled]="!selectedTaskId()"
+      >
+        Assign task
+      </button>
+    }
   } @else {
     <input
       class="timer-input"
@@ -12,9 +51,41 @@
       [ngModel]="description()"
       (ngModelChange)="description.set($event)"
     />
-    <button class="btn btn-primary" type="button" (click)="startTimer()">Start</button>
+    <select
+      [ngModel]="selectedProjectId()"
+      (ngModelChange)="onProjectChange($event)"
+      aria-label="Project"
+    >
+      <option value="">Select project</option>
+      @for (project of projects(); track project.id) {
+        <option [value]="project.id">{{ project.name }}</option>
+      }
+    </select>
+    <select
+      [ngModel]="selectedTaskId()"
+      (ngModelChange)="selectedTaskId.set($event)"
+      [disabled]="!selectedProjectId() || tasks().length === 0"
+      aria-label="Task"
+    >
+      <option value="">Select task</option>
+      @for (task of tasks(); track task.id) {
+        <option [value]="task.id">{{ task.name }}</option>
+      }
+    </select>
+    <button
+      class="btn btn-primary"
+      type="button"
+      (click)="startTimer()"
+      [disabled]="!selectedTaskId() || isSubmitting()"
+    >
+      Start
+    </button>
   }
 </div>
+
+@if (errorMessage(); as error) {
+  <p class="error-text" role="alert">{{ error }}</p>
+}
 
 <h2>Recent entries</h2>
 <div class="card">
@@ -25,6 +96,7 @@
       <thead>
         <tr>
           <th>Description</th>
+          <th>Task</th>
           <th>Start</th>
           <th>End</th>
           <th>Duration</th>
@@ -34,6 +106,7 @@
         @for (entry of timeEntries(); track entry.id) {
           <tr>
             <td>{{ entry.description || '—' }}</td>
+            <td>{{ entry.task?.name || '—' }}</td>
             <td>{{ entry.startTime | date: 'short' }}</td>
             <td>{{ entry.endTime ? (entry.endTime | date: 'short') : 'running' }}</td>
             <td>{{ entry.durationSeconds ? (entry.durationSeconds / 60 | number: '1.0-1') + ' min' : '—' }}</td>

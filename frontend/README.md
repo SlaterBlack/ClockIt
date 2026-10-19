@@ -15,8 +15,8 @@ src/
     features/
       auth/login/      # login page
       auth/register/   # registration page
-      dashboard/       # time tracker page (start/stop timer, recent entries)
-      projects/        # project list/create page
+      dashboard/       # time tracker page (project/task selection, start/stop timer, entries)
+      projects/        # project and task management
     layout/
       shell/           # authenticated app shell: navbar + <router-outlet>
     app.routes.ts       # route table (public auth routes + guarded shell routes)

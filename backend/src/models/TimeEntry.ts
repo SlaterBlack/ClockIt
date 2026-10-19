@@ -10,6 +10,7 @@ export interface TimeEntryAttributes {
   isBillable: boolean;
   userId: string;
   projectId: string | null;
+  taskId: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -31,6 +32,7 @@ export class TimeEntry
   public isBillable!: boolean;
   public userId!: string;
   public projectId!: string | null;
+  public taskId!: string | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -69,6 +71,10 @@ TimeEntry.init(
       allowNull: false,
     },
     projectId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
+    taskId: {
       type: DataTypes.UUID,
       allowNull: true,
     },

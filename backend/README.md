@@ -17,7 +17,8 @@ src/
   config/        # env loading and Sequelize connection
   controllers/    # request handlers
   middleware/     # auth guard + centralized error handling
-  models/         # Sequelize models (User, Workspace, Project, TimeEntry)
+  models/         # Sequelize models (User, Workspace, Project, Task, TimeEntry)
+  migrations/     # SQL migrations for production schema upgrades
   routes/         # Express routers, mounted under /api
   types/          # ambient type augmentations (Express.Request.user)
   utils/          # JWT helpers, ApiError, asyncHandler
@@ -29,16 +30,20 @@ src/
 
 1. Copy `.env.example` to `.env` (already done for local development) and adjust values, especially `DB_*` and `JWT_SECRET`.
 2. Create the PostgreSQL database named in `DB_NAME` (defaults to `clockify_dupe`).
-3. Install dependencies:
+3. For an existing production database, apply the task schema migration before deployment:
+   ```powershell
+   psql -U postgres -d clockify_dupe -f migrations/20261019-add-project-tasks.sql
+   ```
+4. Install dependencies:
    ```powershell
    npm install
    ```
-4. Run in watch mode:
+5. Run in watch mode:
    ```powershell
    npm run dev
    ```
-   The server syncs the Sequelize models automatically in development. For production, use proper migrations instead of `sequelize.sync()`.
-5. Build and run the compiled output:
+   The server syncs/updates the Sequelize models automatically in development. For production, apply the SQL migrations before deploying instead of using `sequelize.sync()`.
+6. Build and run the compiled output:
    ```powershell
    npm run build
    npm start
@@ -61,12 +66,16 @@ All routes are mounted under `/api`.
 | GET    | `/projects?workspaceId=`  | Yes  | List projects in a workspace        |
 | POST   | `/projects`               | Yes  | Create a project                    |
 | DELETE | `/projects/:id`           | Yes  | Delete a project                    |
+| GET    | `/projects/:projectId/tasks` | Yes | List tasks for a project          |
+| POST   | `/projects/:projectId/tasks` | Yes | Create a task in a project        |
+| DELETE | `/projects/:projectId/tasks/:taskId` | Yes | Delete an unused task      |
 | GET    | `/time-entries`           | Yes  | List the caller's time entries      |
-| POST   | `/time-entries/start`     | Yes  | Start a new running timer           |
+| POST   | `/time-entries/start`     | Yes  | Start a timer (requires `taskId`)   |
 | POST   | `/time-entries/:id/stop`  | Yes  | Stop a running timer                |
 | PATCH  | `/time-entries/:id`       | Yes  | Update a time entry                 |
 | DELETE | `/time-entries/:id`       | Yes  | Delete a time entry                 |
 
 Authenticated routes expect `Authorization: Bearer <token>`.
+Every newly started or updated time entry must have a task belonging to a project in the authenticated user's workspace. Tasks already referenced by a time entry cannot be deleted. The schema migration leaves `task_id` nullable only to preserve historical records created before task assignment was required.
 
 This is a scaffold: extend it with validation (e.g. zod/celebrate), migrations, pagination, roles/permissions, and tests as the app grows.
