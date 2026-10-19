@@ -4,6 +4,7 @@ import { sequelize } from '../config/database';
 export interface ProjectAttributes {
   id: string;
   name: string;
+  projectNumber: string | null;
   color: string;
   isBillable: boolean;
   workspaceId: string;
@@ -11,7 +12,10 @@ export interface ProjectAttributes {
   updatedAt?: Date;
 }
 
-export type ProjectCreationAttributes = Optional<ProjectAttributes, 'id' | 'color' | 'isBillable'>;
+export type ProjectCreationAttributes = Optional<
+  ProjectAttributes,
+  'id' | 'projectNumber' | 'color' | 'isBillable'
+>;
 
 export class Project
   extends Model<ProjectAttributes, ProjectCreationAttributes>
@@ -19,6 +23,7 @@ export class Project
 {
   public id!: string;
   public name!: string;
+  public projectNumber!: string | null;
   public color!: string;
   public isBillable!: boolean;
   public workspaceId!: string;
@@ -36,6 +41,10 @@ Project.init(
     name: {
       type: DataTypes.STRING(120),
       allowNull: false,
+    },
+    projectNumber: {
+      type: DataTypes.STRING(3),
+      allowNull: true,
     },
     color: {
       type: DataTypes.STRING(7),

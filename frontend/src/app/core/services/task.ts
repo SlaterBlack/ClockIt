@@ -19,6 +19,12 @@ export class Task {
     return this.http.post<{ task: TaskDto }>(`${this.apiUrl}/${projectId}/tasks`, { name });
   }
 
+  update(projectId: string, taskId: string, name: string): Observable<{ task: TaskDto }> {
+    return this.http.patch<{ task: TaskDto }>(`${this.apiUrl}/${projectId}/tasks/${taskId}`, {
+      name,
+    });
+  }
+
   remove(projectId: string, taskId: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${projectId}/tasks/${taskId}`);
   }

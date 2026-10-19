@@ -2,52 +2,271 @@
 
 <div class="card new-project-card">
   <input
+    class="new-project-number"
     type="text"
-    placeholder="New project name"
+    inputmode="numeric"
+    maxlength="3"
+    pattern="[0-9]{3}"
+    placeholder="000"
+    aria-label="Three-digit project number"
+    [ngModel]="newProjectNumber()"
+    (ngModelChange)="newProjectNumber.set($event)"
+  />
+  <input
+    type="text"
+    placeholder="Project name"
+    aria-label="Project name"
     [ngModel]="newProjectName()"
     (ngModelChange)="newProjectName.set($event)"
   />
+  <label class="color-picker" for="new-project-color">
+    <input
+      id="new-project-color"
+      type="color"
+      [ngModel]="newProjectColor()"
+      (ngModelChange)="newProjectColor.set($event)"
+    />
+    <span>Project color</span>
+  </label>
   <button class="btn btn-primary" type="button" (click)="createProject()">Add project</button>
 </div>
+@if (newProjectError(); as error) {
+  <p class="error-text" role="alert">{{ error }}</p>
+}
 
 <div class="project-list">
   @if (projects().length === 0) {
     <div class="card"><p>No projects yet. Create your first project above.</p></div>
   } @else {
     @for (project of projects(); track project.id) {
-      <section class="card project-card">
+      <section
+        class="card project-card"
+        tabindex="0"
+        role="group"
+        [attr.aria-label]="
+          'Project ' +
+          (project.projectNumber ? project.projectNumber + ' ' : '') +
+          project.name +
+          '. Press Enter or Space to expand or collapse tasks.'
+        "
+        [attr.aria-expanded]="isProjectTasksExpanded(project.id)"
+        (click)="onProjectPanelClick(project.id, $event)"
+        (keydown)="onProjectPanelKeydown(project.id, $event)"
+      >
         <div class="project-heading">
-          <span class="project-color" [style.background]="project.color"></span>
-          <span class="project-name">{{ project.name }}</span>
-          <button class="btn btn-secondary" type="button" (click)="removeProject(project.id)">Remove</button>
-        </div>
-
-        <h2>Tasks</h2>
-        <ul class="task-list">
-          @for (task of project.tasks; track task.id) {
-            <li class="task-item">
-              <span>{{ task.name }}</span>
-              <button class="btn btn-secondary" type="button" (click)="removeTask(project.id, task.id)">
-                Remove
+          <div class="project-color-control">
+            <button
+              class="project-color"
+              type="button"
+              [style.background]="project.color"
+              [attr.aria-label]="'Change color for ' + project.name"
+              [attr.aria-expanded]="expandedColorPickerId() === project.id"
+              (click)="toggleColorPicker(project.id)"
+            ></button>
+            @if (expandedColorPickerId() === project.id) {
+              <div class="color-popover" [attr.aria-label]="'Choose color for ' + project.name">
+                <span class="color-popover-title">Project color</span>
+                <div class="color-swatches">
+                  @for (color of projectColorOptions; track color.value) {
+                    <button
+                      class="color-swatch"
+                      type="button"
+                      [style.background]="color.value"
+                      [attr.aria-label]="color.name"
+                      [attr.title]="color.name"
+                      [attr.aria-pressed]="project.color.toUpperCase() === color.value"
+                      (click)="selectProjectColor(project.id, color.value)"
+                    ></button>
+                  }
+                </div>
+                <label class="custom-color-option">
+                  <input
+                    type="color"
+                    [ngModel]="project.color"
+                    (ngModelChange)="selectProjectColor(project.id, $event)"
+                    [attr.aria-label]="'Choose custom color for ' + project.name"
+                  />
+                  <span>Choose custom color</span>
+                </label>
+              </div>
+            }
+          </div>
+          @if (project.editingDetails) {
+            <div class="project-details-form">
+              <input
+                class="project-number-input"
+                type="text"
+                inputmode="numeric"
+                maxlength="3"
+                pattern="[0-9]{3}"
+                [attr.aria-label]="'Three-digit number for ' + project.name"
+                [ngModel]="project.editedProjectNumber"
+                (ngModelChange)="setEditedProjectNumber(project.id, $event)"
+              />
+              <input
+                class="project-name-input"
+                type="text"
+                maxlength="120"
+                [attr.aria-label]="'Name for project ' + project.name"
+                [ngModel]="project.editedName"
+                (ngModelChange)="setEditedProjectName(project.id, $event)"
+              />
+              <button
+                class="btn btn-primary"
+                type="button"
+                (click)="saveProjectDetails(project.id)"
+              >
+                Save
               </button>
-            </li>
-          } @empty {
-            <li class="empty-tasks">No tasks for this project yet.</li>
+              <button
+                class="btn btn-secondary"
+                type="button"
+                (click)="cancelProjectDetails(project.id)"
+              >
+                Cancel
+              </button>
+            </div>
+          } @else {
+            <span class="project-number">{{ project.projectNumber || '---' }}</span>
+            <span class="project-name">{{ project.name }}</span>
+            <span class="project-summary-separator" aria-hidden="true">–</span>
+            <span class="project-task-count">
+              {{ project.tasks.length }} {{ project.tasks.length === 1 ? 'task' : 'tasks' }}
+            </span>
           }
-        </ul>
-
-        <div class="new-task-form">
-          <input
-            type="text"
-            [ngModel]="project.newTaskName"
-            (ngModelChange)="setNewTaskName(project.id, $event)"
-            [attr.aria-label]="'New task for ' + project.name"
-            placeholder="New task name"
-          />
-          <button class="btn btn-primary" type="button" (click)="createTask(project.id)">Add task</button>
+          <div class="project-options">
+            <button
+              class="project-options-trigger btn btn-secondary"
+              type="button"
+              [attr.aria-label]="
+                'Options for ' +
+                (project.projectNumber ? project.projectNumber + ' ' : '') +
+                project.name
+              "
+              [attr.aria-expanded]="openProjectMenuId() === project.id"
+              aria-haspopup="menu"
+              (click)="toggleProjectMenu(project.id)"
+            >
+              ...
+            </button>
+            @if (openProjectMenuId() === project.id) {
+              <div class="project-options-menu" role="menu">
+                <button type="button" role="menuitem" (click)="editProjectDetails(project.id)">
+                  Edit details
+                </button>
+                <button
+                  class="remove-project-option"
+                  type="button"
+                  role="menuitem"
+                  (click)="removeProject(project.id)"
+                >
+                  Remove project
+                </button>
+              </div>
+            }
+          </div>
         </div>
-        @if (project.taskError; as error) {
+        @if (project.colorError; as error) {
           <p class="error-text" role="alert">{{ error }}</p>
+        }
+        @if (project.detailsError; as error) {
+          <p class="error-text" role="alert">{{ error }}</p>
+        }
+
+        @if (isProjectTasksExpanded(project.id)) {
+          <div class="tasks-disclosure">
+            <div class="tasks-heading">
+              <span>Project tasks</span>
+              <span class="expand-hint">Click panel to collapse</span>
+            </div>
+            <div class="tasks-content">
+              <ul class="task-list">
+                @for (task of project.tasks; track task.id) {
+                  <li class="task-item">
+                    @if (task.editingDetails) {
+                      <div class="task-details-form">
+                        <input
+                          type="text"
+                          maxlength="120"
+                          [attr.aria-label]="'Name for task ' + task.name"
+                          [ngModel]="task.editedName"
+                          (ngModelChange)="setEditedTaskName(project.id, task.id, $event)"
+                        />
+                        <button
+                          class="btn btn-primary"
+                          type="button"
+                          (click)="saveTaskDetails(project.id, task.id)"
+                        >
+                          Save
+                        </button>
+                        <button
+                          class="btn btn-secondary"
+                          type="button"
+                          (click)="cancelTaskDetails(project.id, task.id)"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    } @else {
+                      <span class="task-name">{{ task.name }}</span>
+                      <div class="task-options">
+                        <button
+                          class="project-options-trigger task-options-trigger btn btn-secondary"
+                          type="button"
+                          [attr.aria-label]="'Options for task ' + task.name"
+                          [attr.aria-expanded]="openTaskMenuId() === task.id"
+                          aria-haspopup="menu"
+                          (click)="toggleTaskMenu(task.id)"
+                        >
+                          ...
+                        </button>
+                        @if (openTaskMenuId() === task.id) {
+                          <div class="project-options-menu task-options-menu" role="menu">
+                            <button
+                              type="button"
+                              role="menuitem"
+                              (click)="editTaskDetails(project.id, task.id)"
+                            >
+                              Edit task
+                            </button>
+                            <button
+                              class="remove-project-option"
+                              type="button"
+                              role="menuitem"
+                              (click)="removeTask(project.id, task.id)"
+                            >
+                              Remove task
+                            </button>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </li>
+                  @if (task.detailsError; as error) {
+                    <li class="error-text" role="alert">{{ error }}</li>
+                  }
+                } @empty {
+                  <li class="empty-tasks">No tasks for this project yet.</li>
+                }
+              </ul>
+
+              <div class="new-task-form">
+                <input
+                  type="text"
+                  [ngModel]="project.newTaskName"
+                  (ngModelChange)="setNewTaskName(project.id, $event)"
+                  [attr.aria-label]="'New task for ' + project.name"
+                  placeholder="New task name"
+                />
+                <button class="btn btn-primary" type="button" (click)="createTask(project.id)">
+                  Add task
+                </button>
+              </div>
+              @if (project.taskError; as error) {
+                <p class="error-text" role="alert">{{ error }}</p>
+              }
+            </div>
+          </div>
         }
       </section>
     }

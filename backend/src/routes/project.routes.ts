@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router } from "express";
 import {
   createProject,
   createProjectTask,
@@ -6,17 +6,21 @@ import {
   deleteProjectTask,
   listProjectTasks,
   listProjects,
-} from '../controllers/project.controller';
-import { requireAuth } from '../middleware/requireAuth';
+  updateProject,
+  updateProjectTask,
+} from "../controllers/project.controller";
+import { requireAuth } from "../middleware/requireAuth";
 
 const router = Router();
 
 router.use(requireAuth);
-router.get('/', listProjects);
-router.post('/', createProject);
-router.get('/:projectId/tasks', listProjectTasks);
-router.post('/:projectId/tasks', createProjectTask);
-router.delete('/:projectId/tasks/:taskId', deleteProjectTask);
-router.delete('/:id', deleteProject);
+router.get("/", listProjects);
+router.post("/", createProject);
+router.patch("/:id", updateProject);
+router.get("/:projectId/tasks", listProjectTasks);
+router.post("/:projectId/tasks", createProjectTask);
+router.patch("/:projectId/tasks/:taskId", updateProjectTask);
+router.delete("/:projectId/tasks/:taskId", deleteProjectTask);
+router.delete("/:id", deleteProject);
 
 export default router;

@@ -20,7 +20,9 @@
       >
         <option value="">Select project</option>
         @for (project of projects(); track project.id) {
-          <option [value]="project.id">{{ project.name }}</option>
+          <option [value]="project.id">
+            {{ project.projectNumber ? project.projectNumber + ' ' : '' }}{{ project.name }}
+          </option>
         }
       </select>
       <select
@@ -58,7 +60,9 @@
     >
       <option value="">Select project</option>
       @for (project of projects(); track project.id) {
-        <option [value]="project.id">{{ project.name }}</option>
+        <option [value]="project.id">
+          {{ project.projectNumber ? project.projectNumber + ' ' : '' }}{{ project.name }}
+        </option>
       }
     </select>
     <select

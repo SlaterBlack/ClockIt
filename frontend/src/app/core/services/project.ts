@@ -11,19 +11,30 @@ export class Project {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = `${environment.apiUrl}/projects`;
 
-  listByWorkspace(workspaceId: string): Observable<{ projects: ProjectDto[] }> {
+  listByWorkspace(
+    workspaceId: string,
+    includeTasks = false,
+  ): Observable<{ projects: ProjectDto[] }> {
     return this.http.get<{ projects: ProjectDto[] }>(this.apiUrl, {
-      params: { workspaceId },
+      params: includeTasks ? { workspaceId, includeTasks: 'true' } : { workspaceId },
     });
   }
 
   create(payload: {
     name: string;
+    projectNumber: string;
     workspaceId: string;
     color?: string;
     isBillable?: boolean;
   }): Observable<{ project: ProjectDto }> {
     return this.http.post<{ project: ProjectDto }>(this.apiUrl, payload);
+  }
+
+  update(
+    id: string,
+    changes: Partial<Pick<ProjectDto, 'color' | 'name' | 'projectNumber'>>,
+  ): Observable<{ project: ProjectDto }> {
+    return this.http.patch<{ project: ProjectDto }>(`${this.apiUrl}/${id}`, changes);
   }
 
   remove(id: string): Observable<void> {

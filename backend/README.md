@@ -30,9 +30,10 @@ src/
 
 1. Copy `.env.example` to `.env` (already done for local development) and adjust values, especially `DB_*` and `JWT_SECRET`.
 2. Create the PostgreSQL database named in `DB_NAME` (defaults to `clockify_dupe`).
-3. For an existing production database, apply the task schema migration before deployment:
+3. For an existing production database, apply both schema migrations before deployment:
    ```powershell
    psql -U postgres -d clockify_dupe -f migrations/20261019-add-project-tasks.sql
+   psql -U postgres -d clockify_dupe -f migrations/20261019-add-project-numbers.sql
    ```
 4. Install dependencies:
    ```powershell
@@ -51,7 +52,7 @@ src/
 
 ## API overview
 
-All routes are mounted under `/api`.
+All routes are mounted under `/api`. New projects require a three-digit `projectNumber`. The project-number migration leaves existing records unset so their numbers can be added from the project options menu.
 
 | Method | Route                     | Auth | Description                       |
 | ------ | ------------------------- | ---- | ---------------------------------- |
@@ -63,11 +64,13 @@ All routes are mounted under `/api`.
 | POST   | `/workspaces`             | Yes  | Create a workspace                  |
 | GET    | `/workspaces/:id`         | Yes  | Get a workspace                     |
 | DELETE | `/workspaces/:id`         | Yes  | Delete a workspace                  |
-| GET    | `/projects?workspaceId=`  | Yes  | List projects in a workspace        |
+| GET    | `/projects?workspaceId=`  | Yes  | List projects in a workspace; `includeTasks=true` embeds project tasks |
 | POST   | `/projects`               | Yes  | Create a project                    |
+| PATCH  | `/projects/:id`            | Yes  | Update project details or color      |
 | DELETE | `/projects/:id`           | Yes  | Delete a project                    |
 | GET    | `/projects/:projectId/tasks` | Yes | List tasks for a project          |
 | POST   | `/projects/:projectId/tasks` | Yes | Create a task in a project        |
+| PATCH  | `/projects/:projectId/tasks/:taskId` | Yes | Update a task name            |
 | DELETE | `/projects/:projectId/tasks/:taskId` | Yes | Delete an unused task      |
 | GET    | `/time-entries`           | Yes  | List the caller's time entries      |
 | POST   | `/time-entries/start`     | Yes  | Start a timer (requires `taskId`)   |

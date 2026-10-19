@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { switchMap } from 'rxjs';
 import { Project as ProjectService } from '../../core/services/project';
@@ -8,10 +8,21 @@ import type { Project as ProjectDto } from '../../core/models/project.model';
 import type { Task as TaskDto } from '../../core/models/task.model';
 import type { Workspace as WorkspaceDto } from '../../core/models/workspace.model';
 
+interface TaskView extends TaskDto {
+  editingDetails: boolean;
+  editedName: string;
+  detailsError: string | null;
+}
+
 interface ProjectView extends ProjectDto {
-  tasks: TaskDto[];
+  tasks: TaskView[];
   newTaskName: string;
   taskError: string | null;
+  colorError: string | null;
+  editingDetails: boolean;
+  editedName: string;
+  editedProjectNumber: string;
+  detailsError: string | null;
 }
 
 @Component({
@@ -27,7 +38,26 @@ export class Projects implements OnInit {
 
   readonly workspace = signal<WorkspaceDto | null>(null);
   readonly projects = signal<ProjectView[]>([]);
+  readonly newProjectNumber = signal('');
   readonly newProjectName = signal('');
+  readonly newProjectColor = signal('#2D6A4F');
+  readonly newProjectError = signal<string | null>(null);
+  readonly expandedColorPickerId = signal<string | null>(null);
+  readonly expandedProjectIds = signal<ReadonlySet<string>>(new Set());
+  readonly openProjectMenuId = signal<string | null>(null);
+  readonly openTaskMenuId = signal<string | null>(null);
+  readonly projectColorOptions = [
+    { name: 'Terminal green', value: '#2D6A4F' },
+    { name: 'Deep moss', value: '#1E3A2F' },
+    { name: 'Sage', value: '#6F8F72' },
+    { name: 'Ocean', value: '#3B82A0' },
+    { name: 'Indigo', value: '#5965B3' },
+    { name: 'Amethyst', value: '#8A5CA8' },
+    { name: 'Rose', value: '#C45B75' },
+    { name: 'Terracotta', value: '#C96F4A' },
+    { name: 'Amber', value: '#B78325' },
+    { name: 'Slate', value: '#687783' },
+  ] as const;
 
   ngOnInit(): void {
     this.workspaceService.list().subscribe(({ workspaces }) => {
@@ -46,18 +76,199 @@ export class Projects implements OnInit {
 
   createProject(): void {
     const workspace = this.workspace();
+    const projectNumber = this.newProjectNumber().trim();
     const name = this.newProjectName().trim();
-    if (!workspace || !name) {
+    if (!/^\d{3}$/.test(projectNumber)) {
+      this.newProjectError.set('Enter a three-digit project number.');
+      return;
+    }
+    if (!name) {
+      this.newProjectError.set('Enter a project name.');
+      return;
+    }
+    if (!workspace) {
       return;
     }
 
+    this.newProjectError.set(null);
     this.projectService
-      .create({ name, workspaceId: workspace.id })
-      .pipe(switchMap(() => this.projectService.listByWorkspace(workspace.id)))
-      .subscribe(({ projects }) => {
-        this.setProjects(projects);
-        this.newProjectName.set('');
+      .create({ name, projectNumber, workspaceId: workspace.id, color: this.newProjectColor() })
+      .pipe(switchMap(() => this.projectService.listByWorkspace(workspace.id, true)))
+      .subscribe({
+        next: ({ projects }) => {
+          this.setProjects(projects);
+          this.newProjectNumber.set('');
+          this.newProjectName.set('');
+          this.newProjectColor.set('#2D6A4F');
+        },
+        error: () => this.newProjectError.set('Could not create the project. Try again.'),
       });
+  }
+
+  onProjectPanelClick(projectId: string, event: MouseEvent): void {
+    const target = event.target;
+    if (target instanceof Element && target.closest('button, input, select, textarea, a, label')) {
+      return;
+    }
+
+    this.toggleProjectTasks(projectId);
+  }
+
+  onProjectPanelKeydown(projectId: string, event: KeyboardEvent): void {
+    if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) {
+      return;
+    }
+
+    event.preventDefault();
+    this.toggleProjectTasks(projectId);
+  }
+
+  isProjectTasksExpanded(projectId: string): boolean {
+    return this.expandedProjectIds().has(projectId);
+  }
+
+  toggleProjectTasks(projectId: string): void {
+    this.expandedProjectIds.update((current) => {
+      const expanded = new Set(current);
+      if (expanded.has(projectId)) {
+        expanded.delete(projectId);
+      } else {
+        expanded.add(projectId);
+      }
+      return expanded;
+    });
+  }
+
+  toggleColorPicker(projectId: string): void {
+    this.expandedColorPickerId.update((current) => (current === projectId ? null : projectId));
+  }
+
+  toggleProjectMenu(projectId: string): void {
+    this.openProjectMenuId.update((current) => (current === projectId ? null : projectId));
+  }
+
+  toggleTaskMenu(taskId: string): void {
+    this.openTaskMenuId.update((current) => (current === taskId ? null : taskId));
+  }
+
+  @HostListener('document:click', ['$event'])
+  closePopupsOnOutsideClick(event: MouseEvent): void {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    if (!target.closest('.project-color-control')) {
+      this.expandedColorPickerId.set(null);
+    }
+    if (!target.closest('.project-options')) {
+      this.openProjectMenuId.set(null);
+    }
+    if (!target.closest('.task-options')) {
+      this.openTaskMenuId.set(null);
+    }
+  }
+
+  editProjectDetails(projectId: string): void {
+    this.openProjectMenuId.set(null);
+    this.updateProject(projectId, (project) => ({
+      ...project,
+      editingDetails: true,
+      editedName: project.name,
+      editedProjectNumber: project.projectNumber ?? '',
+      detailsError: null,
+    }));
+  }
+
+  cancelProjectDetails(projectId: string): void {
+    this.updateProject(projectId, (project) => ({
+      ...project,
+      editingDetails: false,
+      detailsError: null,
+    }));
+  }
+
+  setEditedProjectNumber(projectId: string, projectNumber: string): void {
+    this.updateProject(projectId, (project) => ({
+      ...project,
+      editedProjectNumber: projectNumber,
+    }));
+  }
+
+  setEditedProjectName(projectId: string, name: string): void {
+    this.updateProject(projectId, (project) => ({ ...project, editedName: name }));
+  }
+
+  saveProjectDetails(projectId: string): void {
+    const project = this.projects().find((item) => item.id === projectId);
+    const name = project?.editedName.trim();
+    const projectNumber = project?.editedProjectNumber.trim();
+    if (!project || !name) {
+      this.updateProject(projectId, (item) => ({
+        ...item,
+        detailsError: 'Enter a project name.',
+      }));
+      return;
+    }
+    if (!projectNumber || !/^\d{3}$/.test(projectNumber)) {
+      this.updateProject(projectId, (item) => ({
+        ...item,
+        detailsError: 'Enter a three-digit project number.',
+      }));
+      return;
+    }
+
+    this.updateProject(projectId, (item) => ({ ...item, detailsError: null }));
+    this.projectService.update(projectId, { name, projectNumber }).subscribe({
+      next: ({ project: updatedProject }) => {
+        this.projects.update((projects) =>
+          this.sortProjects(
+            projects.map((item) =>
+              item.id === projectId
+                ? {
+                    ...item,
+                    ...updatedProject,
+                    tasks: item.tasks,
+                    editingDetails: false,
+                    editedName: updatedProject.name,
+                    editedProjectNumber: updatedProject.projectNumber ?? '',
+                    detailsError: null,
+                  }
+                : item,
+            ),
+          ),
+        );
+      },
+      error: () =>
+        this.updateProject(projectId, (item) => ({
+          ...item,
+          detailsError: 'Could not update project details. Try again.',
+        })),
+    });
+  }
+
+  selectProjectColor(projectId: string, color: string): void {
+    const project = this.projects().find((item) => item.id === projectId);
+    if (!project || project.color.toUpperCase() === color.toUpperCase()) {
+      this.expandedColorPickerId.set(null);
+      return;
+    }
+
+    this.expandedColorPickerId.set(null);
+    this.updateProject(projectId, (item) => ({ ...item, colorError: null }));
+    this.projectService.update(projectId, { color }).subscribe({
+      next: ({ project: updatedProject }) =>
+        this.updateProject(projectId, (item) => ({
+          ...item,
+          color: updatedProject.color,
+          colorError: null,
+        })),
+      error: () =>
+        this.updateProject(projectId, (item) => ({
+          ...item,
+          colorError: 'Could not update the project color. Try again.',
+        })),
+    });
   }
 
   removeProject(id: string): void {
@@ -66,9 +277,10 @@ export class Projects implements OnInit {
       return;
     }
 
+    this.openProjectMenuId.set(null);
     this.projectService
       .remove(id)
-      .pipe(switchMap(() => this.projectService.listByWorkspace(workspace.id)))
+      .pipe(switchMap(() => this.projectService.listByWorkspace(workspace.id, true)))
       .subscribe(({ projects }) => this.setProjects(projects));
   }
 
@@ -91,7 +303,7 @@ export class Projects implements OnInit {
       next: ({ task }) =>
         this.updateProject(projectId, (item) => ({
           ...item,
-          tasks: [...item.tasks, task].sort((a, b) => a.name.localeCompare(b.name)),
+          tasks: this.sortTasks([...item.tasks, this.toTaskView(task)]),
           newTaskName: '',
           taskError: null,
         })),
@@ -103,7 +315,73 @@ export class Projects implements OnInit {
     });
   }
 
+  editTaskDetails(projectId: string, taskId: string): void {
+    this.openTaskMenuId.set(null);
+    this.updateProject(projectId, (project) => ({
+      ...project,
+      tasks: project.tasks.map((task) =>
+        task.id === taskId
+          ? { ...task, editingDetails: true, editedName: task.name, detailsError: null }
+          : task,
+      ),
+    }));
+  }
+
+  cancelTaskDetails(projectId: string, taskId: string): void {
+    this.updateTask(projectId, taskId, (task) => ({
+      ...task,
+      editingDetails: false,
+      detailsError: null,
+    }));
+  }
+
+  setEditedTaskName(projectId: string, taskId: string, name: string): void {
+    this.updateTask(projectId, taskId, (task) => ({ ...task, editedName: name }));
+  }
+
+  saveTaskDetails(projectId: string, taskId: string): void {
+    const task = this.projects()
+      .find((project) => project.id === projectId)
+      ?.tasks.find((item) => item.id === taskId);
+    const name = task?.editedName.trim();
+    if (!task || !name) {
+      this.updateTask(projectId, taskId, (item) => ({
+        ...item,
+        detailsError: 'Enter a task name.',
+      }));
+      return;
+    }
+    if (name.length > 120) {
+      this.updateTask(projectId, taskId, (item) => ({
+        ...item,
+        detailsError: 'Task names must be 120 characters or fewer.',
+      }));
+      return;
+    }
+
+    this.updateTask(projectId, taskId, (item) => ({ ...item, detailsError: null }));
+    this.taskService.update(projectId, taskId, name).subscribe({
+      next: ({ task: updatedTask }) =>
+        this.updateProject(projectId, (project) => ({
+          ...project,
+          tasks: this.sortTasks(
+            project.tasks.map((item) =>
+              item.id === taskId
+                ? { ...item, ...updatedTask, editingDetails: false, editedName: updatedTask.name }
+                : item,
+            ),
+          ),
+        })),
+      error: () =>
+        this.updateTask(projectId, taskId, (item) => ({
+          ...item,
+          detailsError: 'Could not update the task. Try again.',
+        })),
+    });
+  }
+
   removeTask(projectId: string, taskId: string): void {
+    this.openTaskMenuId.set(null);
     this.taskService.remove(projectId, taskId).subscribe({
       next: () =>
         this.updateProject(projectId, (item) => ({
@@ -120,40 +398,64 @@ export class Projects implements OnInit {
   }
 
   private loadProjects(workspaceId: string): void {
-    this.projectService.listByWorkspace(workspaceId).subscribe(({ projects }) => {
+    this.projectService.listByWorkspace(workspaceId, true).subscribe(({ projects }) => {
       this.setProjects(projects);
     });
   }
 
   private setProjects(projects: ProjectDto[]): void {
     this.projects.set(
-      projects.map((project) => ({
-        ...project,
-        tasks: [],
-        newTaskName: '',
-        taskError: null,
-      })),
+      this.sortProjects(
+        projects.map((project) => ({
+          ...project,
+          tasks: (project.tasks ?? []).map((task) => this.toTaskView(task)),
+          newTaskName: '',
+          taskError: null,
+          colorError: null,
+          editingDetails: false,
+          editedName: project.name,
+          editedProjectNumber: project.projectNumber ?? '',
+          detailsError: null,
+        })),
+      ),
     );
-
-    for (const project of projects) {
-      this.taskService.listByProject(project.id).subscribe({
-        next: ({ tasks }) =>
-          this.updateProject(project.id, (item) => ({ ...item, tasks })),
-        error: () =>
-          this.updateProject(project.id, (item) => ({
-            ...item,
-            taskError: 'Could not load project tasks.',
-          })),
-      });
-    }
   }
 
-  private updateProject(
-    projectId: string,
-    update: (project: ProjectView) => ProjectView,
-  ): void {
+  private updateProject(projectId: string, update: (project: ProjectView) => ProjectView): void {
     this.projects.update((projects) =>
       projects.map((project) => (project.id === projectId ? update(project) : project)),
     );
+  }
+
+  private updateTask(
+    projectId: string,
+    taskId: string,
+    update: (task: TaskView) => TaskView,
+  ): void {
+    this.updateProject(projectId, (project) => ({
+      ...project,
+      tasks: project.tasks.map((task) => (task.id === taskId ? update(task) : task)),
+    }));
+  }
+
+  private toTaskView(task: TaskDto): TaskView {
+    return { ...task, editingDetails: false, editedName: task.name, detailsError: null };
+  }
+
+  private sortTasks(tasks: TaskView[]): TaskView[] {
+    return [...tasks].sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  private sortProjects<T extends ProjectDto>(projects: T[]): T[] {
+    return [...projects].sort((left, right) => {
+      const leftNumber =
+        left.projectNumber === null ? Number.POSITIVE_INFINITY : Number(left.projectNumber);
+      const rightNumber =
+        right.projectNumber === null ? Number.POSITIVE_INFINITY : Number(right.projectNumber);
+      return (
+        leftNumber - rightNumber ||
+        left.name.localeCompare(right.name, undefined, { numeric: true })
+      );
+    });
   }
 }
