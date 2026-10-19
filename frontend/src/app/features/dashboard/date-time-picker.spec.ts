@@ -32,7 +32,9 @@ describe('DateTimePicker', () => {
     expect(component.selectedMinute()).toBe('30');
     (fixture.nativeElement.querySelector('[data-date="2026-10-22"]') as HTMLButtonElement).click();
     fixture.detectChanges();
-    (fixture.nativeElement.querySelector('.date-time-actions .btn-primary') as HTMLButtonElement).click();
+    (
+      fixture.nativeElement.querySelector('.date-time-actions .btn-primary') as HTMLButtonElement
+    ).click();
     expect(emittedValues).toEqual(['2026-10-22T09:30']);
 
     fixture.componentRef.setInput('value', emittedValues[0]);
@@ -42,17 +44,57 @@ describe('DateTimePicker', () => {
     expect(component.selectedHour()).toBe('09');
     expect(component.selectedMinute()).toBe('30');
     const hour = fixture.nativeElement.querySelector('[aria-label="Hour"]') as HTMLSelectElement;
+    const minute = fixture.nativeElement.querySelector(
+      '[aria-label="Minute"]',
+    ) as HTMLSelectElement;
+    expect(hour.value).toBe('09');
+    expect(minute.value).toBe('30');
     hour.value = '14';
     hour.dispatchEvent(new Event('change'));
-    const minute = fixture.nativeElement.querySelector('[aria-label="Minute"]') as HTMLSelectElement;
     minute.value = '45';
     minute.dispatchEvent(new Event('change'));
     fixture.detectChanges();
 
-    (fixture.nativeElement.querySelector('.date-time-actions .btn-primary') as HTMLButtonElement).click();
+    (
+      fixture.nativeElement.querySelector('.date-time-actions .btn-primary') as HTMLButtonElement
+    ).click();
 
     expect(emittedValues).toEqual(['2026-10-22T09:30', '2026-10-22T14:45']);
     expect(component.openPickerType()).toBe(null);
+  });
+
+  it('accepts start times as four-digit 24-hour input and rejects invalid values', () => {
+    fixture.componentRef.setInput('manualTime', true);
+    fixture.detectChanges();
+    const emittedValues: string[] = [];
+    component.valueChange.subscribe((value) => emittedValues.push(value));
+
+    const time = fixture.nativeElement.querySelector('.manual-time-input') as HTMLInputElement;
+    expect(time.value).toBe(component.displayManualTime());
+    expect(fixture.nativeElement.querySelector('.time-trigger')).toBeNull();
+
+    time.focus();
+    fixture.detectChanges();
+    expect(time.value).toBe('0930');
+    time.value = '1745';
+    time.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(emittedValues).toEqual(['2026-10-19T17:45']);
+    fixture.componentRef.setInput('value', emittedValues[0]);
+    time.blur();
+    fixture.detectChanges();
+    expect(time.value).toBe(component.displayManualTime());
+
+    time.focus();
+    fixture.detectChanges();
+    time.value = '2460';
+    time.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(time.getAttribute('aria-invalid')).toBe('true');
+    expect(emittedValues).toEqual(['2026-10-19T17:45']);
+    time.blur();
+    fixture.detectChanges();
+    expect(time.value).toBe(component.displayManualTime());
   });
 
   it('clears an optional end date and time', () => {

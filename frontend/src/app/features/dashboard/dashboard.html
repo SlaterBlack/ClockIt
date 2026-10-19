@@ -55,7 +55,11 @@
       [ngModel]="description()"
       (ngModelChange)="description.set($event)"
     />
-    <select [ngModel]="selectedProjectId()" (ngModelChange)="onProjectChange($event)" aria-label="Project">
+    <select
+      [ngModel]="selectedProjectId()"
+      (ngModelChange)="onProjectChange($event)"
+      aria-label="Project"
+    >
       <option value="">Select project</option>
       @for (project of projects(); track project.id) {
         <option [value]="project.id">
@@ -109,7 +113,9 @@
                 role="button"
                 tabindex="0"
                 [attr.aria-expanded]="editingEntry()?.id === entry.id"
-                [attr.aria-label]="'Edit time entry: ' + (entry.description || entry.task?.name || 'time entry')"
+                [attr.aria-label]="
+                  'Edit time entry: ' + (entry.description || entry.task?.name || 'time entry')
+                "
                 (click)="toggleEntryEdit(entry)"
                 (keydown)="onEntryKeydown($event, entry)"
               >
@@ -141,7 +147,8 @@
                       <option value="">Select project</option>
                       @for (project of projects(); track project.id) {
                         <option [value]="project.id">
-                          {{ project.projectNumber ? project.projectNumber + ' ' : '' }}{{ project.name }}
+                          {{ project.projectNumber ? project.projectNumber + ' ' : ''
+                          }}{{ project.name }}
                         </option>
                       }
                     </select>
@@ -178,6 +185,7 @@
                       <app-date-time-picker
                         label="Start"
                         ariaLabel="Start date and time"
+                        [manualTime]="true"
                         [value]="editingEntry()?.startTime ?? ''"
                         (valueChange)="updateEntryDraft({ startTime: $event })"
                       />
@@ -203,7 +211,9 @@
                     >
                       Save changes
                     </button>
-                    <button class="btn btn-secondary" type="button" (click)="cancelEntryEdit()">Cancel</button>
+                    <button class="btn btn-secondary" type="button" (click)="cancelEntryEdit()">
+                      Cancel
+                    </button>
                   </div>
                 </div>
               }

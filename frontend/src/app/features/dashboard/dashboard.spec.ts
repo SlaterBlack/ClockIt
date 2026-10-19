@@ -1,10 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { By } from '@angular/platform-browser';
-
 import { Dashboard } from './dashboard';
-import { DateTimePicker } from './date-time-picker';
 
 describe('Dashboard', () => {
   let component: Dashboard;
@@ -22,7 +19,9 @@ describe('Dashboard', () => {
     httpMock = TestBed.inject(HttpTestingController);
 
     fixture.detectChanges();
-    httpMock.expectOne((request) => request.url.endsWith('/time-entries')).flush({ timeEntries: [] });
+    httpMock
+      .expectOne((request) => request.url.endsWith('/time-entries'))
+      .flush({ timeEntries: [] });
     httpMock.expectOne((request) => request.url.endsWith('/workspaces')).flush({ workspaces: [] });
   });
 
@@ -78,24 +77,46 @@ describe('Dashboard', () => {
     component.clockNow.set(new Date('2020-01-01T10:00').getTime());
 
     component.onRunningProjectChange('p1');
-    httpMock.expectOne((request) => request.url.endsWith('/projects/p1/tasks')).flush({ tasks: [task] });
+    httpMock
+      .expectOne((request) => request.url.endsWith('/projects/p1/tasks'))
+      .flush({ tasks: [task] });
     component.updateRunningTimerDraft({ taskId: task.id, startTime: '2020-01-01T09:30' });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.timer-start-time .date-trigger')).toBeNull();
     expect(
-      fixture.nativeElement.querySelector('.running-timer-left select[aria-label="Project for running timer"]'),
+      fixture.nativeElement.querySelector(
+        '.running-timer-left select[aria-label="Project for running timer"]',
+      ),
     ).toBeTruthy();
     expect(
-      fixture.nativeElement.querySelector('.running-timer-left select[aria-label="Task for running timer"]'),
+      fixture.nativeElement.querySelector(
+        '.running-timer-left select[aria-label="Task for running timer"]',
+      ),
     ).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.running-time-value').textContent.trim()).toBe('00:30:00');
-    expect(fixture.nativeElement.querySelector('.running-timer-right .btn-danger').textContent.trim()).toBe('End');
-    (fixture.nativeElement.querySelector('.timer-start-time .time-trigger') as HTMLButtonElement).click();
+    expect(fixture.nativeElement.querySelector('.running-time-value').textContent.trim()).toBe(
+      '00:30:00',
+    );
+    expect(
+      fixture.nativeElement.querySelector('.running-timer-right .btn-danger').textContent.trim(),
+    ).toBe('End');
+    const startTime = fixture.nativeElement.querySelector(
+      '.timer-start-time .manual-time-input',
+    ) as HTMLInputElement;
+    expect(startTime.value).toBe(
+      new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(
+        new Date('2020-01-01T09:30'),
+      ),
+    );
+    expect(fixture.nativeElement.querySelector('.timer-start-time .time-popover')).toBeNull();
+    startTime.focus();
     fixture.detectChanges();
-    const startPicker = fixture.debugElement.query(By.directive(DateTimePicker)).componentInstance as DateTimePicker;
-    expect(startPicker.selectedHour()).toBe('09');
-    expect(startPicker.selectedMinute()).toBe('30');
-    (fixture.nativeElement.querySelector('.timer-start-time .time-trigger') as HTMLButtonElement).click();
+    expect(startTime.value).toBe('0930');
+    startTime.value = '0940';
+    startTime.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(component.runningTimerEdit()?.startTime).toBe('2020-01-01T09:40');
+    component.updateRunningTimerDraft({ startTime: '2020-01-01T09:30' });
+    fixture.detectChanges();
     (fixture.nativeElement.querySelector('.timer-card .btn-danger') as HTMLButtonElement).click();
 
     const stopRequest = httpMock.expectOne(
@@ -114,7 +135,9 @@ describe('Dashboard', () => {
         endTime: '2020-01-01T10:00:00.000Z',
       },
     });
-    httpMock.expectOne((request) => request.url.endsWith('/time-entries')).flush({ timeEntries: [] });
+    httpMock
+      .expectOne((request) => request.url.endsWith('/time-entries'))
+      .flush({ timeEntries: [] });
 
     expect(component.runningEntry()).toBeNull();
   });
@@ -150,7 +173,9 @@ describe('Dashboard', () => {
     ]);
     fixture.detectChanges();
     (fixture.nativeElement.querySelector('.time-entry') as HTMLElement).click();
-    httpMock.expectOne((request) => request.url.endsWith('/projects/p1/tasks')).flush({ tasks: [task] });
+    httpMock
+      .expectOne((request) => request.url.endsWith('/projects/p1/tasks'))
+      .flush({ tasks: [task] });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.entry-description')).toBeNull();
@@ -158,6 +183,8 @@ describe('Dashboard', () => {
     expect(dateTimeFields.children.length).toBe(2);
     expect(dateTimeFields.querySelectorAll('app-date-time-picker').length).toBe(2);
     expect(dateTimeFields.querySelectorAll('input[type="datetime-local"]').length).toBe(0);
+    expect(dateTimeFields.querySelector('.manual-time-input')).toBeTruthy();
+    expect(dateTimeFields.querySelector('.time-trigger')).toBeTruthy();
   });
 
   it('opens only the time entry the user clicks', () => {
@@ -191,12 +218,16 @@ describe('Dashboard', () => {
     fixture.detectChanges();
 
     (fixture.nativeElement.querySelectorAll('.time-entry')[0] as HTMLElement).click();
-    httpMock.expectOne((request) => request.url.endsWith('/projects/p1/tasks')).flush({ tasks: [task] });
+    httpMock
+      .expectOne((request) => request.url.endsWith('/projects/p1/tasks'))
+      .flush({ tasks: [task] });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('.entry-edit-form').length).toBe(1);
 
     (fixture.nativeElement.querySelectorAll('.time-entry')[1] as HTMLElement).click();
-    httpMock.expectOne((request) => request.url.endsWith('/projects/p1/tasks')).flush({ tasks: [task] });
+    httpMock
+      .expectOne((request) => request.url.endsWith('/projects/p1/tasks'))
+      .flush({ tasks: [task] });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.entry-edit-form').length).toBe(1);
@@ -261,7 +292,10 @@ describe('Dashboard', () => {
       updatedAt: '',
     };
     component.projects.set([project, replacementProject]);
-    component.timeEntries.set([entry, { ...entry, id: 'e2', startTime: '2026-10-17T11:00:00.000Z' }]);
+    component.timeEntries.set([
+      entry,
+      { ...entry, id: 'e2', startTime: '2026-10-17T11:00:00.000Z' },
+    ]);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.entry-day').length).toBe(2);
@@ -269,12 +303,18 @@ describe('Dashboard', () => {
       '364 Sydney Opera House - Design',
     );
     expect(component.formatDuration(entry)).toBe('1h 30m');
-    expect(fixture.nativeElement.querySelector('.entry-day-total').textContent.trim()).toBe('1h 30m');
+    expect(fixture.nativeElement.querySelector('.entry-day-total').textContent.trim()).toBe(
+      '1h 30m',
+    );
 
     (fixture.nativeElement.querySelector('.time-entry') as HTMLElement).click();
-    httpMock.expectOne((request) => request.url.endsWith('/projects/p1/tasks')).flush({ tasks: [task] });
+    httpMock
+      .expectOne((request) => request.url.endsWith('/projects/p1/tasks'))
+      .flush({ tasks: [task] });
     component.onEditProjectChange('p2');
-    httpMock.expectOne((request) => request.url.endsWith('/projects/p2/tasks')).flush({ tasks: [replacementTask] });
+    httpMock
+      .expectOne((request) => request.url.endsWith('/projects/p2/tasks'))
+      .flush({ tasks: [replacementTask] });
 
     component.updateEntryDraft({
       taskId: 't2',

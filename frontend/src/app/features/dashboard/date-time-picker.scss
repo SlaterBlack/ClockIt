@@ -36,8 +36,33 @@
 
 .date-time-controls {
   display: flex;
+  align-items: center;
   gap: var(--space-xs);
   min-width: 0;
+}
+
+.manual-time-input {
+  width: 6rem;
+  min-height: 38px;
+  padding: 0.35rem 0.3rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  letter-spacing: 0.04em;
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 18%, transparent);
+  }
+
+  &[aria-invalid='true'] {
+    border-color: var(--color-danger);
+  }
 }
 
 .date-time-trigger,
