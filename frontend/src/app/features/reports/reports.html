@@ -151,6 +151,12 @@
     </article>
   </section>
 
+  <app-report-export-panel
+    [entries]="filteredEntries()"
+    [startDate]="startDate()"
+    [endDate]="endDate()"
+  />
+
   <section class="card project-breakdown">
     <div class="report-section-heading">
       <div>

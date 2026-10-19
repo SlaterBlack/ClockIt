@@ -34,6 +34,15 @@ By default the app expects the backend API at `http://localhost:4000/api` (see `
 
 The Reports page supports date presets/custom dates, project, task, billable status, and user filters, summary totals, a project breakdown, and a detailed entry table. Its default is the signed-in user's entries; selecting all users includes every registered user's entries in this app.
 
+### Report exports
+
+The Export card on the Reports page downloads exactly the entries matching the current filters:
+
+- **Export CSV** – one row per entry (date, start/end time, user, project number/name, task, description, billable, `hh:mm:ss` and decimal-hour durations). Running entries are included with their duration so far. Text cells starting with `=`, `+`, `-` or `@` are prefixed with `'` to prevent spreadsheet formula injection.
+- **Export to Xero** – a Xero invoice import file (`*ContactName`, `*InvoiceNumber`, `*InvoiceDate`, `*DueDate`, `*Description`, `*Quantity`, `*UnitAmount`, `*AccountCode`, `*TaxType`). Only completed billable entries are used, grouped into one line per project and task with quantity in hours. The app stores no rates or clients, so the contact name, invoice number, dates, hourly rate, account code and tax type are entered in the export form. Dates are written as `DD/MM/YYYY`; the tax type must match one of your Xero organisation's tax rate names.
+
+A direct Xero API (OAuth 2.0) push is not implemented yet.
+
 ---
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.27.

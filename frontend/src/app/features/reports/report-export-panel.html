@@ -1,0 +1,98 @@
+<section class="card export-panel" aria-label="Export report">
+  <div class="export-header">
+    <div>
+      <h2>Export</h2>
+      <p>Download the entries shown in this report.</p>
+    </div>
+    <div class="export-actions">
+      <button
+        class="btn btn-secondary"
+        type="button"
+        [disabled]="entries().length === 0"
+        (click)="exportCsv()"
+      >
+        Export CSV
+      </button>
+      <button
+        class="btn btn-secondary"
+        type="button"
+        [attr.aria-expanded]="isXeroOpen()"
+        (click)="toggleXero()"
+      >
+        Export to Xero
+      </button>
+    </div>
+  </div>
+
+  @if (isXeroOpen()) {
+    <form class="xero-form" aria-label="Xero invoice export" (ngSubmit)="exportXero()">
+      <p class="xero-note">
+        Creates a Xero invoice import file with one line per project and task, using completed
+        billable entries ({{ invoiceableCount() }} in this report).
+      </p>
+      <div class="xero-fields">
+        <label>
+          Contact name
+          <input
+            name="contactName"
+            [ngModel]="contactName()"
+            (ngModelChange)="contactName.set($event)"
+          />
+        </label>
+        <label>
+          Invoice number
+          <input
+            name="invoiceNumber"
+            [ngModel]="invoiceNumber()"
+            (ngModelChange)="invoiceNumber.set($event)"
+          />
+        </label>
+        <label>
+          Invoice date
+          <input
+            name="invoiceDate"
+            type="date"
+            [ngModel]="invoiceDate()"
+            (ngModelChange)="invoiceDate.set($event)"
+          />
+        </label>
+        <label>
+          Due date
+          <input
+            name="dueDate"
+            type="date"
+            [ngModel]="dueDate()"
+            (ngModelChange)="dueDate.set($event)"
+          />
+        </label>
+        <label>
+          Hourly rate
+          <input
+            name="hourlyRate"
+            type="number"
+            min="0"
+            step="0.01"
+            [ngModel]="hourlyRate()"
+            (ngModelChange)="hourlyRate.set($event)"
+          />
+        </label>
+        <label>
+          Account code
+          <input
+            name="accountCode"
+            [ngModel]="accountCode()"
+            (ngModelChange)="accountCode.set($event)"
+          />
+        </label>
+        <label>
+          Tax type
+          <input name="taxType" [ngModel]="taxType()" (ngModelChange)="taxType.set($event)" />
+        </label>
+      </div>
+      @if (errorMessage(); as error) {
+        <p class="error-text" role="alert">{{ error }}</p>
+      }
+      <button class="btn btn-primary" type="submit">Download Xero CSV</button>
+    </form>
+  }
+</section>

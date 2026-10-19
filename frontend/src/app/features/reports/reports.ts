@@ -6,6 +6,8 @@ import { interval } from 'rxjs';
 import type { ReportUser } from '../../core/models/report.model';
 import { Report as ReportService } from '../../core/services/report';
 import type { TimeEntry as TimeEntryDto } from '../../core/models/time-entry.model';
+import { ReportExportPanel } from './report-export-panel';
+import { entryDurationSeconds, formatClockDuration, localDateKey } from './report-export';
 
 type DatePreset = 'today' | 'this-week' | 'last-month' | 'year-to-date' | 'custom';
 type BillableFilter = 'all' | 'billable' | 'non-billable';
@@ -18,7 +20,7 @@ interface ProjectSummary {
 
 @Component({
   selector: 'app-reports',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, ReportExportPanel],
   templateUrl: './reports.html',
   styleUrl: './reports.scss',
 })
@@ -82,7 +84,7 @@ export class Reports implements OnInit {
         if (Number.isNaN(startTime.getTime())) {
           return false;
         }
-        const entryDate = this.localDateKey(startTime);
+        const entryDate = localDateKey(startTime);
         return (
           (!startDate || entryDate >= startDate) &&
           (!endDate || entryDate <= endDate) &&
@@ -172,8 +174,8 @@ export class Reports implements OnInit {
       case 'custom':
         return;
     }
-    this.startDate.set(this.localDateKey(start));
-    this.endDate.set(this.localDateKey(end));
+    this.startDate.set(localDateKey(start));
+    this.endDate.set(localDateKey(end));
   }
 
   onProjectFilterChange(projectId: string): void {
@@ -186,10 +188,7 @@ export class Reports implements OnInit {
   }
 
   formatDuration(totalSeconds: number): string {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    return formatClockDuration(totalSeconds);
   }
 
   formatHours(totalSeconds: number): string {
@@ -231,16 +230,7 @@ export class Reports implements OnInit {
   }
 
   private durationSeconds(entry: TimeEntryDto): number {
-    if (entry.endTime) {
-      return Math.max(
-        0,
-        entry.durationSeconds ??
-          Math.round(
-            (new Date(entry.endTime).getTime() - new Date(entry.startTime).getTime()) / 1000,
-          ),
-      );
-    }
-    return Math.max(0, Math.round((this.clockNow() - new Date(entry.startTime).getTime()) / 1000));
+    return entryDurationSeconds(entry, this.clockNow());
   }
 
   private startOfDay(date: Date): Date {
@@ -251,12 +241,5 @@ export class Reports implements OnInit {
     const result = new Date(date);
     result.setDate(result.getDate() + days);
     return result;
-  }
-
-  private localDateKey(date: Date): string {
-    if (Number.isNaN(date.getTime())) {
-      return '';
-    }
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
 }
