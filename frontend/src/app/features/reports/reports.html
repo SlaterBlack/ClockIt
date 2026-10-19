@@ -1,0 +1,239 @@
+<h1>Reports</h1>
+<p class="reports-intro">Review tracked time and billable hours for the selected period.</p>
+
+<section class="card report-filters" aria-label="Report filters">
+  <div class="date-presets" role="group" aria-label="Date range">
+    <button
+      class="btn btn-secondary"
+      type="button"
+      [class.is-selected]="datePreset() === 'today'"
+      [attr.aria-pressed]="datePreset() === 'today'"
+      (click)="setDatePreset('today')"
+    >
+      Today
+    </button>
+    <button
+      class="btn btn-secondary"
+      type="button"
+      [class.is-selected]="datePreset() === 'this-week'"
+      [attr.aria-pressed]="datePreset() === 'this-week'"
+      (click)="setDatePreset('this-week')"
+    >
+      This week
+    </button>
+    <button
+      class="btn btn-secondary"
+      type="button"
+      [class.is-selected]="datePreset() === 'last-month'"
+      [attr.aria-pressed]="datePreset() === 'last-month'"
+      (click)="setDatePreset('last-month')"
+    >
+      Last month
+    </button>
+    <button
+      class="btn btn-secondary"
+      type="button"
+      [class.is-selected]="datePreset() === 'year-to-date'"
+      [attr.aria-pressed]="datePreset() === 'year-to-date'"
+      (click)="setDatePreset('year-to-date')"
+    >
+      Year to date
+    </button>
+  </div>
+
+  <div class="report-filter-fields">
+    <label>
+      Team members
+      <select
+        aria-label="Filter by team member"
+        [ngModel]="selectedUserId()"
+        (ngModelChange)="onUserFilterChange($event)"
+      >
+        <option [value]="currentUserId()">Only me</option>
+        <option value="all">All users</option>
+        @for (user of reportUsers(); track user.id) {
+          @if (user.id !== currentUserId()) {
+            <option [value]="user.id">{{ user.name }}</option>
+          }
+        }
+      </select>
+    </label>
+    <label>
+      From
+      <input
+        type="date"
+        aria-label="Report start date"
+        [ngModel]="startDate()"
+        (ngModelChange)="startDate.set($event); onDateChange()"
+      />
+    </label>
+    <label>
+      To
+      <input
+        type="date"
+        aria-label="Report end date"
+        [ngModel]="endDate()"
+        (ngModelChange)="endDate.set($event); onDateChange()"
+      />
+    </label>
+    <label>
+      Project
+      <select
+        aria-label="Filter by project"
+        [ngModel]="projectFilter()"
+        (ngModelChange)="onProjectFilterChange($event)"
+      >
+        <option value="">All projects</option>
+        @for (project of projectOptions(); track project.id) {
+          <option [value]="project.id">{{ project.name }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      Task
+      <select
+        aria-label="Filter by task"
+        [ngModel]="taskFilter()"
+        (ngModelChange)="taskFilter.set($event)"
+      >
+        <option value="">All tasks</option>
+        @for (task of taskOptions(); track task.id) {
+          <option [value]="task.id">{{ task.name }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      Billable
+      <select
+        aria-label="Filter by billable status"
+        [ngModel]="billableFilter()"
+        (ngModelChange)="billableFilter.set($event)"
+      >
+        <option value="all">All entries</option>
+        <option value="billable">Billable</option>
+        <option value="non-billable">Non-billable</option>
+      </select>
+    </label>
+  </div>
+</section>
+
+@if (errorMessage(); as error) {
+  <p class="error-text" role="alert">{{ error }}</p>
+}
+
+@if (isLoading()) {
+  <div class="card report-message" role="status">Loading report…</div>
+} @else if (!errorMessage()) {
+  @if (startDate() && endDate() && startDate() > endDate()) {
+    <p class="error-text" role="alert">The start date must be on or before the end date.</p>
+  }
+
+  <section class="report-summary" aria-label="Report summary">
+    <article class="card report-stat">
+      <span>Total tracked</span>
+      <strong>{{ formatDuration(totalDurationSeconds()) }}</strong>
+      <small>{{ formatHours(totalDurationSeconds()) }}</small>
+    </article>
+    <article class="card report-stat">
+      <span>Billable</span>
+      <strong>{{ formatDuration(billableDurationSeconds()) }}</strong>
+      <small>{{ formatHours(billableDurationSeconds()) }}</small>
+    </article>
+    <article class="card report-stat">
+      <span>Non-billable</span>
+      <strong>{{ formatDuration(nonBillableDurationSeconds()) }}</strong>
+      <small>{{ formatHours(nonBillableDurationSeconds()) }}</small>
+    </article>
+    <article class="card report-stat">
+      <span>Entries</span>
+      <strong>{{ filteredEntries().length }}</strong>
+      <small>in selected period</small>
+    </article>
+  </section>
+
+  <section class="card project-breakdown">
+    <div class="report-section-heading">
+      <div>
+        <h2>Time by project</h2>
+        <p>Tracked duration for each project in the selected report.</p>
+      </div>
+    </div>
+    @if (projectSummaries().length === 0) {
+      <p class="report-empty">No project time matches these filters.</p>
+    } @else {
+      <ul class="project-summary-list">
+        @for (summary of projectSummaries(); track summary.id) {
+          <li>
+            <div class="project-summary-label">
+              <span>{{ summary.name }}</span>
+              <strong>{{ formatDuration(summary.durationSeconds) }}</strong>
+            </div>
+            <div
+              class="project-summary-bar"
+              role="img"
+              [attr.aria-label]="summary.name + ': ' + formatDuration(summary.durationSeconds)"
+            >
+              <span [style.width.%]="projectBarWidth(summary.durationSeconds)"></span>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  <section class="card detailed-report">
+    <div class="report-section-heading">
+      <div>
+        <h2>Detailed report</h2>
+        <p>Individual time entries, newest first.</p>
+      </div>
+      <span class="detail-count">{{ filteredEntries().length }} entries</span>
+    </div>
+    @if (filteredEntries().length === 0) {
+      <p class="report-empty">No time entries match this report.</p>
+    } @else {
+      <div class="report-table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Project / task</th>
+              <th scope="col">User</th>
+              <th scope="col">Description</th>
+              <th scope="col">Time</th>
+              <th scope="col">Duration</th>
+              <th scope="col">Billable</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (entry of filteredEntries(); track entry.id) {
+              <tr>
+                <td>{{ entry.startTime | date: 'mediumDate' }}</td>
+                <td>
+                  <span class="report-project-name">{{ entry.project?.name || 'No project' }}</span>
+                  <span class="report-task-name">{{ entry.task?.name || 'No task' }}</span>
+                </td>
+                <td>{{ entry.user?.name || 'Unknown user' }}</td>
+                <td class="report-description">{{ entry.description || '—' }}</td>
+                <td class="report-time-range">
+                  {{ entry.startTime | date: 'shortTime' }} –
+                  @if (entry.endTime) {
+                    {{ entry.endTime | date: 'shortTime' }}
+                  } @else {
+                    <span class="running-entry">Running</span>
+                  }
+                </td>
+                <td class="report-duration">{{ formatDuration(entryDuration(entry)) }}</td>
+                <td>
+                  <span class="billable-badge" [class.non-billable]="!entry.isBillable">
+                    {{ entry.isBillable ? 'Billable' : 'Non-billable' }}
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+}

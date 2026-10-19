@@ -23,4 +23,10 @@ describe('Shell', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('provides navigation to reports', () => {
+    expect(fixture.nativeElement.querySelector('a[routerLink="/reports"]')?.textContent).toContain(
+      'Reports',
+    );
+  });
 });

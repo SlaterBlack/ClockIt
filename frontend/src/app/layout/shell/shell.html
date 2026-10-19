@@ -1,8 +1,11 @@
 <header class="navbar">
   <span class="navbar-brand">Clockify Dupe</span>
   <nav class="navbar-links">
-    <a routerLink="/dashboard" routerLinkActive="is-active" ariaCurrentWhenActive="page">Time Tracker</a>
+    <a routerLink="/dashboard" routerLinkActive="is-active" ariaCurrentWhenActive="page"
+      >Time Tracker</a
+    >
     <a routerLink="/projects" routerLinkActive="is-active" ariaCurrentWhenActive="page">Projects</a>
+    <a routerLink="/reports" routerLinkActive="is-active" ariaCurrentWhenActive="page">Reports</a>
   </nav>
   <div class="navbar-user">
     @if (currentUser(); as user) {

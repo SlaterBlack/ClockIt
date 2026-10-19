@@ -77,8 +77,12 @@ All routes are mounted under `/api`. New projects require a three-digit `project
 | POST   | `/time-entries/:id/stop`  | Yes  | Stop a running timer; optionally save `taskId` and `startTime` with the stop |
 | PATCH  | `/time-entries/:id`       | Yes  | Update description, task/project, billable status, start/end; recalculates duration |
 | DELETE | `/time-entries/:id`       | Yes  | Delete a time entry                 |
+| GET    | `/reports/users`          | Yes  | List user IDs and names available in reports |
+| GET    | `/reports/time-entries?userId=` | Yes | List report entries for the caller, one selected user, or all users |
 
 Authenticated routes expect `Authorization: Bearer <token>`.
 Every newly started or updated time entry must have a task belonging to a project in the authenticated user's workspace. Tasks already referenced by a time entry cannot be deleted. The schema migration leaves `task_id` nullable only to preserve historical records created before task assignment was required.
+
+Reports default to the authenticated user's entries. The `userId=all` option includes every registered user's entries; a specific `userId` selects one user's entries. This is global visibility across the app rather than workspace-scoped. The report user list and entry owner association expose only user IDs and names.
 
 This is a scaffold: extend it with validation (e.g. zod/celebrate), migrations, pagination, roles/permissions, and tests as the app grows.

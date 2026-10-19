@@ -10,6 +10,7 @@ export interface TimeEntry {
   taskId: string | null;
   project?: { id: string; name: string; projectNumber: string | null } | null;
   task?: { id: string; name: string } | null;
+  user?: { id: string; name: string } | null;
   createdAt: string;
   updatedAt: string;
 }
