@@ -22,7 +22,7 @@ src/
       shell/           # authenticated app shell: navbar + <router-outlet>
     app.routes.ts       # route table (public auth routes + guarded shell routes)
     app.config.ts       # app-wide providers (router, HttpClient + interceptor)
-  environments/         # apiUrl per environment (dev points at http://localhost:4000/api)
+  environments/         # apiUrl per environment (dev uses /api, proxied to http://localhost:4000)
   styles/               # shared design tokens (_tokens.scss), resets (_base.scss),
                         # and reusable classes (_components.scss: .btn, .card, .form-field, ...)
   styles.scss           # imports the styles/ partials globally
@@ -30,7 +30,7 @@ src/
 
 To keep the UI uniform without a component library, build new pages with the classes defined in `src/styles/_components.scss` (`.page`, `.card`, `.btn`/`.btn-primary`/`.btn-secondary`/`.btn-danger`, `.form-field`, `.navbar`) and the CSS custom properties in `src/styles/_tokens.scss` (colors, spacing, radius). Re-theme the whole app by editing the tokens file.
 
-By default the app expects the backend API at `http://localhost:4000/api` (see `src/environments/environment.development.ts`); update `environment.ts` for the production API URL.
+In development the app calls the API at the relative path `/api` (see `src/environments/environment.development.ts`); the dev server forwards it to the backend on `http://localhost:4000` via `proxy.conf.json`. Update `environment.ts` for the production API URL.
 
 The Reports page supports date presets/custom dates, project, task, billable status, and user filters, summary totals, a project breakdown, and a detailed entry table. Its default is the signed-in user's entries; selecting all users includes every registered user's entries in this app.
 
@@ -56,6 +56,14 @@ ng serve
 ```
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+
+### Access from other devices on the network
+
+The dev server listens on all interfaces, so other devices on the same network can open `http://<your-pc-ip>:4200/` (the `Network:` URL printed by `ng serve`, or find it with `ipconfig`). Only port 4200 is needed; API calls go through the dev server proxy to the backend, which can stay on localhost. If the page doesn't load from another device, allow inbound TCP 4200 in Windows Firewall (run in an admin PowerShell):
+
+```powershell
+New-NetFirewallRule -DisplayName "Clockify Dupe dev (4200)" -Direction Inbound -Protocol TCP -LocalPort 4200 -Action Allow
+```
 
 ## Code scaffolding
 

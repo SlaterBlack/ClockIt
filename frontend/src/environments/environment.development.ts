@@ -1,4 +1,5 @@
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:4000/api',
+  // Relative so devices on the LAN reach the API through the dev server proxy (proxy.conf.json).
+  apiUrl: '/api',
 };
