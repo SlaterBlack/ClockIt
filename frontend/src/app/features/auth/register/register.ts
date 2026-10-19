@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -35,10 +36,22 @@ export class Register {
 
     this.auth.register(name, email, password).subscribe({
       next: () => this.router.navigate(['/dashboard']),
-      error: () => {
+      error: (err: HttpErrorResponse) => {
         this.isSubmitting.set(false);
-        this.errorMessage.set('Could not create an account with those details.');
+        this.errorMessage.set(this.describeError(err));
       },
     });
+  }
+
+  showError(control: 'name' | 'email' | 'password'): boolean {
+    const field = this.form.controls[control];
+    return field.invalid && (field.touched || field.dirty);
+  }
+
+  private describeError(err: HttpErrorResponse): string {
+    if (err.status === 0) {
+      return 'Cannot reach the server. Check that the backend is running.';
+    }
+    return err.error?.error ?? 'Could not create an account with those details.';
   }
 }
