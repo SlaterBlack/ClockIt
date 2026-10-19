@@ -40,7 +40,7 @@ Project.init(
     color: {
       type: DataTypes.STRING(7),
       allowNull: false,
-      defaultValue: '#03A9F4',
+      defaultValue: '#2D6A4F',
     },
     isBillable: {
       type: DataTypes.BOOLEAN,

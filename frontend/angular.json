@@ -28,6 +28,11 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "inter-latin-[4567]00-normal.woff2",
+                "input": "node_modules/@fontsource/inter/files",
+                "output": "fonts/inter"
               }
             ],
             "styles": ["src/styles.scss"]

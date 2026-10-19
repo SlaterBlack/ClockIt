@@ -1,20 +1,24 @@
 // Design tokens: the single source of truth for brand colors, spacing and typography.
 // Update these variables to re-theme the whole application consistently.
 :root {
-  // Brand colors
-  --color-primary: #2f6fed;
-  --color-primary-dark: #1f4fc4;
-  --color-primary-light: #e8f0ff;
-  --color-accent: #03a9f4;
+  // Company palette
+  --color-bg: #f9f6f0;
+  --color-surface: #fffdf9;
+  --color-primary: #1e3a2f;
+  --color-primary-dark: #0f1e17;
+  --color-primary-light: color-mix(in srgb, var(--color-secondary) 22%, var(--color-surface));
+  --color-secondary: #a3b19a;
+  --color-accent: #2d6a4f;
+  --color-contrast: #0f1e17;
+
+  // Status colors
   --color-danger: #e5484d;
   --color-success: #2e9e6b;
 
-  // Neutrals
-  --color-bg: #f5f6f8;
-  --color-surface: #ffffff;
-  --color-border: #e2e5ea;
-  --color-text: #1b1f27;
-  --color-text-muted: #666d7a;
+  // Text and dividers
+  --color-border: var(--color-secondary);
+  --color-text: var(--color-primary);
+  --color-text-muted: color-mix(in srgb, var(--color-primary) 72%, var(--color-secondary));
 
   // Spacing scale
   --space-xs: 0.25rem;
@@ -24,11 +28,11 @@
   --space-xl: 2.5rem;
 
   // Typography
-  --font-family-base:
-    'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-family-base: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-size-base: 14px;
-  --radius-sm: 4px;
-  --radius-md: 8px;
+  --radius-sm: 7px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
 }

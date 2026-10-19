@@ -1,6 +1,6 @@
 # Frontend — Clockify Dupe
 
-Angular frontend scaffold for the time recording system. Standalone components, lazy-loaded routes, signals for state, and a custom (no UI library) design system so the whole app stays visually consistent.
+Angular frontend scaffold for the time recording system. Standalone components, lazy-loaded routes, signals for state, Inter (bundled locally), and a custom (no UI library) design system so the whole app stays visually consistent.
 
 ## Project structure
 

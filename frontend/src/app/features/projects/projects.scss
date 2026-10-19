@@ -5,10 +5,12 @@
 
   input {
     flex: 1;
-    padding: var(--space-sm);
+    min-height: 42px;
+    padding: 0.625rem 0.75rem;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    font-size: 1rem;
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text);
   }
 }
 
@@ -68,9 +70,23 @@
   input {
     flex: 1;
     min-width: 0;
-    padding: var(--space-sm);
+    min-height: 42px;
+    padding: 0.625rem 0.75rem;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    font-size: 1rem;
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text);
+  }
+}
+
+@media (max-width: 600px) {
+  .new-project-card,
+  .new-task-form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .project-heading {
+    flex-wrap: wrap;
   }
 }
