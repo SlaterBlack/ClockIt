@@ -1,0 +1,17 @@
+<header class="navbar">
+  <span class="navbar-brand">Clockify Dupe</span>
+  <nav class="navbar-links">
+    <a routerLink="/dashboard">Time Tracker</a>
+    <a routerLink="/projects">Projects</a>
+  </nav>
+  <div class="navbar-user">
+    @if (currentUser(); as user) {
+      <span>{{ user.name }}</span>
+    }
+    <button class="btn btn-secondary" type="button" (click)="logout()">Log out</button>
+  </div>
+</header>
+
+<main class="page">
+  <router-outlet />
+</main>

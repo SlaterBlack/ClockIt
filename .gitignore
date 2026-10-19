@@ -1,0 +1,54 @@
+# ===== Dependencies =====
+node_modules/
+**/node_modules/
+
+# ===== Build output =====
+dist/
+**/dist/
+backend/dist/
+frontend/dist/
+/tmp
+/out-tsc
+/bazel-out
+frontend/.angular/cache/
+**/.angular/cache/
+
+# ===== Environment / secrets =====
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# ===== Logs =====
+npm-debug.log*
+yarn-error.log*
+*.log
+
+# ===== Test / coverage =====
+coverage/
+**/coverage/
+/connect.lock
+/libpeerconnection.log
+testem.log
+/typings
+__screenshots__/
+
+# ===== IDE / editor =====
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/mcp.json
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.history/*
+
+# ===== OS files =====
+.DS_Store
+Thumbs.db

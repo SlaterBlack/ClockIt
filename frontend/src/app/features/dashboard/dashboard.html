@@ -1,0 +1,45 @@
+<h1>Time Tracker</h1>
+
+<div class="card timer-card">
+  @if (runningEntry(); as running) {
+    <p class="timer-status">Tracking: <strong>{{ running.description || '(no description)' }}</strong></p>
+    <button class="btn btn-danger" type="button" (click)="stopTimer()">Stop</button>
+  } @else {
+    <input
+      class="timer-input"
+      type="text"
+      placeholder="What are you working on?"
+      [ngModel]="description()"
+      (ngModelChange)="description.set($event)"
+    />
+    <button class="btn btn-primary" type="button" (click)="startTimer()">Start</button>
+  }
+</div>
+
+<h2>Recent entries</h2>
+<div class="card">
+  @if (timeEntries().length === 0) {
+    <p>No time entries yet. Start your first timer above.</p>
+  } @else {
+    <table class="entries-table">
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (entry of timeEntries(); track entry.id) {
+          <tr>
+            <td>{{ entry.description || '—' }}</td>
+            <td>{{ entry.startTime | date: 'short' }}</td>
+            <td>{{ entry.endTime ? (entry.endTime | date: 'short') : 'running' }}</td>
+            <td>{{ entry.durationSeconds ? (entry.durationSeconds / 60 | number: '1.0-1') + ' min' : '—' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

@@ -1,0 +1,27 @@
+<h1>Projects</h1>
+
+<div class="card new-project-card">
+  <input
+    type="text"
+    placeholder="New project name"
+    [ngModel]="newProjectName()"
+    (ngModelChange)="newProjectName.set($event)"
+  />
+  <button class="btn btn-primary" type="button" (click)="createProject()">Add project</button>
+</div>
+
+<div class="card">
+  @if (projects().length === 0) {
+    <p>No projects yet. Create your first project above.</p>
+  } @else {
+    <ul class="project-list">
+      @for (project of projects(); track project.id) {
+        <li class="project-item">
+          <span class="project-color" [style.background]="project.color"></span>
+          <span class="project-name">{{ project.name }}</span>
+          <button class="btn btn-secondary" type="button" (click)="removeProject(project.id)">Remove</button>
+        </li>
+      }
+    </ul>
+  }
+</div>
