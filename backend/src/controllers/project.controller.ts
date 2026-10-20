@@ -4,27 +4,19 @@ import { PAY_TYPES, PayType } from "../models/Task";
 import { ApiError } from "../utils/ApiError";
 import { asyncHandler } from "../utils/asyncHandler";
 
-async function assertWorkspaceOwnership(
-  workspaceId: string,
-  userId: string,
-): Promise<void> {
-  const workspace = await Workspace.findOne({
-    where: { id: workspaceId, ownerId: userId },
-  });
+// Projects are shared by every signed-in user, so access only requires the workspace to exist.
+async function assertWorkspaceExists(workspaceId: string): Promise<void> {
+  const workspace = await Workspace.findByPk(workspaceId);
   if (!workspace) {
     throw new ApiError(404, "Workspace not found");
   }
 }
 
-async function findOwnedProject(
-  projectId: string,
-  userId: string,
-): Promise<Project> {
+async function findProject(projectId: string): Promise<Project> {
   const project = await Project.findByPk(projectId);
   if (!project) {
     throw new ApiError(404, "Project not found");
   }
-  await assertWorkspaceOwnership(project.workspaceId, userId);
   return project;
 }
 
@@ -75,7 +67,7 @@ export const listProjects = asyncHandler(
       throw new ApiError(400, "workspaceId query parameter is required");
     }
 
-    await assertWorkspaceOwnership(workspaceId, req.user!.id);
+    await assertWorkspaceExists(workspaceId);
     const includeTasks = req.query.includeTasks === "true";
     const projects = await Project.findAll({
       where: { workspaceId },
@@ -117,7 +109,7 @@ export const createProject = asyncHandler(
       throw new ApiError(400, "color must be a six-digit hexadecimal color");
     }
 
-    await assertWorkspaceOwnership(workspaceId, req.user!.id);
+    await assertWorkspaceExists(workspaceId);
     const project = await Project.create({
       name: trimmedName,
       projectNumber,
@@ -131,7 +123,7 @@ export const createProject = asyncHandler(
 
 export const updateProject = asyncHandler(
   async (req: Request, res: Response) => {
-    const project = await findOwnedProject(req.params.id, req.user!.id);
+    const project = await findProject(req.params.id);
 
     const { color, name, projectNumber } = req.body as {
       color?: string;
@@ -171,7 +163,7 @@ export const updateProject = asyncHandler(
 
 export const deleteProject = asyncHandler(
   async (req: Request, res: Response) => {
-    const project = await findOwnedProject(req.params.id, req.user!.id);
+    const project = await findProject(req.params.id);
     if ((await TimeEntry.count({ where: { projectId: project.id } })) > 0) {
       throw new ApiError(
         409,
@@ -187,7 +179,7 @@ export const deleteProject = asyncHandler(
 
 export const listProjectTasks = asyncHandler(
   async (req: Request, res: Response) => {
-    const project = await findOwnedProject(req.params.projectId, req.user!.id);
+    const project = await findProject(req.params.projectId);
 
     const tasks = await Task.findAll({
       where: { projectId: project.id },
@@ -199,7 +191,7 @@ export const listProjectTasks = asyncHandler(
 
 export const createProjectTask = asyncHandler(
   async (req: Request, res: Response) => {
-    const project = await findOwnedProject(req.params.projectId, req.user!.id);
+    const project = await findProject(req.params.projectId);
 
     const { name, payType } = req.body as { name?: string; payType?: unknown };
     const trimmedName = validateName(name, "name is required");
@@ -216,7 +208,7 @@ export const createProjectTask = asyncHandler(
 
 export const updateProjectTask = asyncHandler(
   async (req: Request, res: Response) => {
-    const project = await findOwnedProject(req.params.projectId, req.user!.id);
+    const project = await findProject(req.params.projectId);
 
     const task = await findProjectTask(project.id, req.params.taskId);
 
@@ -236,7 +228,7 @@ export const updateProjectTask = asyncHandler(
 
 export const deleteProjectTask = asyncHandler(
   async (req: Request, res: Response) => {
-    const project = await findOwnedProject(req.params.projectId, req.user!.id);
+    const project = await findProject(req.params.projectId);
 
     const task = await findProjectTask(project.id, req.params.taskId);
 

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
-import { Project, Task, TimeEntry, Workspace } from '../models';
+import { Project, Task, TimeEntry } from '../models';
 import { ApiError } from '../utils/ApiError';
 import { asyncHandler } from '../utils/asyncHandler';
 
@@ -26,7 +26,8 @@ export const listTimeEntries = asyncHandler(async (req: Request, res: Response) 
   res.json({ timeEntries });
 });
 
-async function assertTaskOwnership(taskId: string, userId: string): Promise<Task> {
+// Projects and tasks are shared by every user, so a task only needs to exist (and have a project).
+async function findTask(taskId: string): Promise<Task> {
   const task = await Task.findByPk(taskId);
   if (!task) {
     throw new ApiError(404, 'Task not found');
@@ -35,13 +36,6 @@ async function assertTaskOwnership(taskId: string, userId: string): Promise<Task
   const project = await Project.findByPk(task.projectId);
   if (!project) {
     throw new ApiError(404, 'Task project not found');
-  }
-
-  const workspace = await Workspace.findOne({
-    where: { id: project.workspaceId, ownerId: userId },
-  });
-  if (!workspace) {
-    throw new ApiError(404, 'Task not found');
   }
 
   return task;
@@ -58,7 +52,7 @@ export const startTimeEntry = asyncHandler(async (req: Request, res: Response) =
   if (!taskId) {
     throw new ApiError(400, 'taskId is required before a timer can be started');
   }
-  const task = await assertTaskOwnership(taskId, req.user!.id);
+  const task = await findTask(taskId);
 
   const runningEntry = await TimeEntry.findOne({
     where: { userId: req.user!.id, endTime: { [Op.is]: null } },
@@ -95,7 +89,7 @@ export const stopTimeEntry = asyncHandler(async (req: Request, res: Response) =>
   if (typeof effectiveTaskId !== 'string' || !effectiveTaskId) {
     throw new ApiError(409, 'Assign a task before stopping this timer');
   }
-  const task = await assertTaskOwnership(effectiveTaskId, req.user!.id);
+  const task = await findTask(effectiveTaskId);
   const parsedStartTime =
     startTime === undefined ? timeEntry.startTime : parseEntryDate(startTime, 'startTime');
 
@@ -135,7 +129,7 @@ export const updateTimeEntry = asyncHandler(async (req: Request, res: Response) 
   if (!effectiveTaskId) {
     throw new ApiError(400, 'taskId is required before a time entry can be saved');
   }
-  const task = await assertTaskOwnership(effectiveTaskId, req.user!.id);
+  const task = await findTask(effectiveTaskId);
 
   if (description !== undefined && (typeof description !== 'string' || description.length > 500)) {
     throw new ApiError(400, 'description must be 500 characters or fewer');

@@ -35,6 +35,7 @@ src/
    psql -U postgres -d clockify_dupe -f migrations/20261019-add-project-tasks.sql
    psql -U postgres -d clockify_dupe -f migrations/20261019-add-project-numbers.sql
    psql -U postgres -d clockify_dupe -f migrations/20261019-add-task-pay-type.sql
+   psql -U postgres -d clockify_dupe -f migrations/20261020-share-workspace.sql
    ```
 4. Install dependencies:
    ```powershell
@@ -61,10 +62,10 @@ All routes are mounted under `/api`. New projects require a three-digit `project
 | POST   | `/auth/register`          | No   | Create a user, returns a JWT        |
 | POST   | `/auth/login`             | No   | Log in, returns a JWT               |
 | GET    | `/auth/me`                | Yes  | Current authenticated user          |
-| GET    | `/workspaces`             | Yes  | List the caller's workspaces        |
-| POST   | `/workspaces`             | Yes  | Create a workspace                  |
+| GET    | `/workspaces`             | Yes  | List workspaces (one shared workspace; oldest first) |
+| POST   | `/workspaces`             | Yes  | Create the shared workspace; returns the existing one if it already exists |
 | GET    | `/workspaces/:id`         | Yes  | Get a workspace                     |
-| DELETE | `/workspaces/:id`         | Yes  | Delete a workspace                  |
+| DELETE | `/workspaces/:id`         | Yes  | Delete a workspace (creator only)   |
 | GET    | `/projects?workspaceId=`  | Yes  | List projects in a workspace; `includeTasks=true` embeds project tasks |
 | POST   | `/projects`               | Yes  | Create a project                    |
 | PATCH  | `/projects/:id`            | Yes  | Update project details or color      |
@@ -82,7 +83,7 @@ All routes are mounted under `/api`. New projects require a three-digit `project
 | GET    | `/reports/time-entries?userId=` | Yes | List report entries for the caller, one selected user, or all users |
 
 Authenticated routes expect `Authorization: Bearer <token>`.
-Every newly started or updated time entry must have a task belonging to a project in the authenticated user's workspace. Tasks already referenced by a time entry cannot be deleted. The schema migration leaves `task_id` nullable only to preserve historical records created before task assignment was required.
+Projects and their tasks are shared by every signed-in user (there is a single shared workspace), so any user can view, edit and track time against any project. Every newly started or updated time entry must have a task that belongs to an existing project. Tasks already referenced by a time entry cannot be deleted. The schema migration leaves `task_id` nullable only to preserve historical records created before task assignment was required.
 
 Reports default to the authenticated user's entries. The `userId=all` option includes every registered user's entries; a specific `userId` selects one user's entries. This is global visibility across the app rather than workspace-scoped. The report user list and entry owner association expose only user IDs and names.
 
