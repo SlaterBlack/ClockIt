@@ -77,34 +77,6 @@
   padding: 0.25rem 0;
 }
 
-.new-project-card .color-picker {
-  min-width: 130px;
-  justify-content: center;
-}
-
-.project-color-control {
-  position: relative;
-  flex: 0 0 auto;
-}
-
-.project-color {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 2px solid var(--color-surface);
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-secondary) 75%, var(--color-primary));
-  cursor: pointer;
-  transition:
-    transform 0.16s ease,
-    box-shadow 0.16s ease;
-
-  &:hover {
-    transform: scale(1.12);
-    box-shadow: 0 0 0 2px var(--color-accent);
-  }
-}
-
 .project-name {
   flex: 1 1 auto;
   min-width: 0;
@@ -214,71 +186,6 @@
   min-height: 36px;
   padding: 0.4rem 0.625rem;
   font-size: 0.85rem;
-}
-
-.color-popover {
-  position: absolute;
-  z-index: 5;
-  top: calc(100% + var(--space-sm));
-  left: 0;
-  width: 220px;
-  padding: var(--space-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-md);
-  cursor: default;
-}
-
-.color-popover-title {
-  display: block;
-  margin-bottom: var(--space-sm);
-  color: var(--color-text-muted);
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.color-swatches {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: var(--space-sm);
-}
-
-.color-swatch {
-  width: 28px;
-  height: 28px;
-  border: 2px solid var(--color-surface);
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-secondary) 75%, transparent);
-  cursor: pointer;
-
-  &:hover,
-  &[aria-pressed='true'] {
-    box-shadow: 0 0 0 2px var(--color-primary);
-    transform: scale(1.08);
-  }
-}
-
-.custom-color-option {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-top: var(--space-md);
-  padding-top: var(--space-sm);
-  border-top: 1px solid color-mix(in srgb, var(--color-secondary) 45%, transparent);
-  color: var(--color-text);
-  font-size: 0.85rem;
-  cursor: pointer;
-
-  input[type='color'] {
-    width: 32px;
-    height: 32px;
-    padding: 2px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    cursor: pointer;
-  }
 }
 
 .tasks-disclosure {

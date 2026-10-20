@@ -4,6 +4,7 @@ import { switchMap } from 'rxjs';
 import { Project as ProjectService } from '../../core/services/project';
 import { Task as TaskService } from '../../core/services/task';
 import { Workspace as WorkspaceService } from '../../core/services/workspace';
+import { ProjectColorPicker } from './project-color-picker';
 import type { Project as ProjectDto } from '../../core/models/project.model';
 import type { Task as TaskDto } from '../../core/models/task.model';
 import type { Workspace as WorkspaceDto } from '../../core/models/workspace.model';
@@ -31,7 +32,7 @@ interface ProjectView extends ProjectDto {
 
 @Component({
   selector: 'app-projects',
-  imports: [FormsModule],
+  imports: [FormsModule, ProjectColorPicker],
   templateUrl: './projects.html',
   styleUrl: './projects.scss',
 })
@@ -48,25 +49,11 @@ export class Projects implements OnInit {
   readonly newProjectError = signal<string | null>(null);
   readonly showArchived = signal(false);
   readonly addingTaskProjectId = signal<string | null>(null);
-  readonly expandedColorPickerId = signal<string | null>(null);
   readonly expandedProjectIds = signal<ReadonlySet<string>>(new Set());
   readonly openProjectMenuId = signal<string | null>(null);
   readonly openTaskMenuId = signal<string | null>(null);
   readonly payTypes = PAY_TYPES;
   readonly payTypeLabel = payTypeLabel;
-  readonly projectColorOptions = [
-    { name: 'Terminal green', value: '#2D6A4F' },
-    { name: 'Deep moss', value: '#1E3A2F' },
-    { name: 'Sage', value: '#6F8F72' },
-    { name: 'Ocean', value: '#3B82A0' },
-    { name: 'Indigo', value: '#5965B3' },
-    { name: 'Amethyst', value: '#8A5CA8' },
-    { name: 'Rose', value: '#C45B75' },
-    { name: 'Terracotta', value: '#C96F4A' },
-    { name: 'Amber', value: '#B78325' },
-    { name: 'Slate', value: '#687783' },
-  ] as const;
-
   ngOnInit(): void {
     this.workspaceService.list().subscribe(({ workspaces }) => {
       if (workspaces.length > 0) {
@@ -147,10 +134,6 @@ export class Projects implements OnInit {
     });
   }
 
-  toggleColorPicker(projectId: string): void {
-    this.expandedColorPickerId.update((current) => (current === projectId ? null : projectId));
-  }
-
   toggleProjectMenu(projectId: string): void {
     this.openProjectMenuId.update((current) => (current === projectId ? null : projectId));
   }
@@ -193,9 +176,6 @@ export class Projects implements OnInit {
       return;
     }
 
-    if (!target.closest('.project-color-control')) {
-      this.expandedColorPickerId.set(null);
-    }
     if (!target.closest('.project-options')) {
       this.openProjectMenuId.set(null);
     }
@@ -285,11 +265,9 @@ export class Projects implements OnInit {
   selectProjectColor(projectId: string, color: string): void {
     const project = this.projects().find((item) => item.id === projectId);
     if (!project || project.color.toUpperCase() === color.toUpperCase()) {
-      this.expandedColorPickerId.set(null);
       return;
     }
 
-    this.expandedColorPickerId.set(null);
     this.updateProject(projectId, (item) => ({ ...item, colorError: null }));
     this.projectService.update(projectId, { color }).subscribe({
       next: ({ project: updatedProject }) =>

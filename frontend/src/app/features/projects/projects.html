@@ -24,15 +24,10 @@
     [ngModel]="newProjectName()"
     (ngModelChange)="newProjectName.set($event)"
   />
-  <label class="color-picker" for="new-project-color">
-    <input
-      id="new-project-color"
-      type="color"
-      [ngModel]="newProjectColor()"
-      (ngModelChange)="newProjectColor.set($event)"
-    />
-    <span>Project color</span>
-  </label>
+  <app-project-color-picker
+    [color]="newProjectColor()"
+    (pickedColor)="newProjectColor.set($event)"
+  />
   <button class="btn btn-primary" type="button" (click)="createProject()">Add project</button>
 </div>
 @if (newProjectError(); as error) {
@@ -67,43 +62,13 @@
         (keydown)="onProjectPanelKeydown(project.id, $event)"
       >
         <div class="project-heading">
-          <div class="project-color-control">
-            <button
-              class="project-color"
-              type="button"
-              [style.background]="project.color"
-              [attr.aria-label]="'Change color for ' + project.name"
-              [attr.aria-expanded]="expandedColorPickerId() === project.id"
-              (click)="toggleColorPicker(project.id)"
-            ></button>
-            @if (expandedColorPickerId() === project.id) {
-              <div class="color-popover" [attr.aria-label]="'Choose color for ' + project.name">
-                <span class="color-popover-title">Project color</span>
-                <div class="color-swatches">
-                  @for (color of projectColorOptions; track color.value) {
-                    <button
-                      class="color-swatch"
-                      type="button"
-                      [style.background]="color.value"
-                      [attr.aria-label]="color.name"
-                      [attr.title]="color.name"
-                      [attr.aria-pressed]="project.color.toUpperCase() === color.value"
-                      (click)="selectProjectColor(project.id, color.value)"
-                    ></button>
-                  }
-                </div>
-                <label class="custom-color-option">
-                  <input
-                    type="color"
-                    [ngModel]="project.color"
-                    (ngModelChange)="selectProjectColor(project.id, $event)"
-                    [attr.aria-label]="'Choose custom color for ' + project.name"
-                  />
-                  <span>Choose custom color</span>
-                </label>
-              </div>
-            }
-          </div>
+          <app-project-color-picker
+            [color]="project.color"
+            [label]="'Change color for ' + project.name"
+            [displayLabel]="project.name"
+            [compact]="true"
+            (pickedColor)="selectProjectColor(project.id, $event)"
+          />
           @if (project.editingDetails) {
             <div class="project-details-form">
               <input

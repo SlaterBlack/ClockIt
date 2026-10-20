@@ -75,7 +75,9 @@ describe('Projects', () => {
     fixture.detectChanges();
     expect(panel.getAttribute('aria-expanded')).toBe('true');
 
-    const colorButton = fixture.nativeElement.querySelector('.project-color') as HTMLButtonElement;
+    const colorButton = fixture.nativeElement.querySelector(
+      '.is-compact .project-color',
+    ) as HTMLButtonElement;
     colorButton.click();
     fixture.detectChanges();
 
@@ -87,7 +89,9 @@ describe('Projects', () => {
     setExampleProject();
     fixture.detectChanges();
 
-    const colorButton = fixture.nativeElement.querySelector('.project-color') as HTMLButtonElement;
+    const colorButton = fixture.nativeElement.querySelector(
+      '.is-compact .project-color',
+    ) as HTMLButtonElement;
     colorButton.click();
     fixture.detectChanges();
 
@@ -103,6 +107,22 @@ describe('Projects', () => {
     request.flush({ project: { ...exampleProject, color: '#3B82A0' } });
 
     expect(component.projects()[0].color).toBe('#3B82A0');
+  });
+
+  it('closes the color selector when its button is clicked a second time', () => {
+    setExampleProject();
+    fixture.detectChanges();
+
+    const colorButton = fixture.nativeElement.querySelector(
+      '.is-compact .project-color',
+    ) as HTMLButtonElement;
+    colorButton.click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.color-popover')).toBeTruthy();
+
+    colorButton.click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.color-popover')).toBeNull();
   });
 
   it('edits project details through the options menu and sorts by project number', () => {
@@ -256,7 +276,9 @@ describe('Projects', () => {
     component.toggleProjectTasks('p1');
     fixture.detectChanges();
 
-    (fixture.nativeElement.querySelector('.project-color') as HTMLButtonElement).click();
+    (
+      fixture.nativeElement.querySelector('.is-compact .project-color') as HTMLButtonElement
+    ).click();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.color-popover')).toBeTruthy();
     (fixture.nativeElement.querySelector('.project-name') as HTMLElement).click();
