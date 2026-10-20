@@ -23,13 +23,28 @@ export class TimeEntry {
     return this.http.post<{ timeEntry: TimeEntryDto }>(`${this.apiUrl}/start`, payload);
   }
 
-  stop(id: string, payload: { taskId: string; startTime: string }): Observable<{ timeEntry: TimeEntryDto }> {
+  create(payload: {
+    description?: string;
+    taskId: string;
+    isBillable?: boolean;
+    startTime: string;
+    endTime: string;
+  }): Observable<{ timeEntry: TimeEntryDto }> {
+    return this.http.post<{ timeEntry: TimeEntryDto }>(this.apiUrl, payload);
+  }
+
+  stop(
+    id: string,
+    payload: { taskId: string; startTime: string },
+  ): Observable<{ timeEntry: TimeEntryDto }> {
     return this.http.post<{ timeEntry: TimeEntryDto }>(`${this.apiUrl}/${id}/stop`, payload);
   }
 
   update(
     id: string,
-    payload: Partial<Pick<TimeEntryDto, 'description' | 'taskId' | 'isBillable' | 'startTime' | 'endTime'>>,
+    payload: Partial<
+      Pick<TimeEntryDto, 'description' | 'taskId' | 'isBillable' | 'startTime' | 'endTime'>
+    >,
   ): Observable<{ timeEntry: TimeEntryDto }> {
     return this.http.patch<{ timeEntry: TimeEntryDto }>(`${this.apiUrl}/${id}`, payload);
   }

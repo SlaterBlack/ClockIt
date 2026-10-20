@@ -6,6 +6,7 @@ export interface Project {
   projectNumber: string | null;
   color: string;
   isBillable: boolean;
+  archived: boolean;
   workspaceId: string;
   tasks?: Task[];
   createdAt: string;

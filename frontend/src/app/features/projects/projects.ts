@@ -22,6 +22,7 @@ interface ProjectView extends ProjectDto {
   newTaskPayType: PayType;
   taskError: string | null;
   colorError: string | null;
+  archiveError: string | null;
   editingDetails: boolean;
   editedName: string;
   editedProjectNumber: string;
@@ -45,6 +46,8 @@ export class Projects implements OnInit {
   readonly newProjectName = signal('');
   readonly newProjectColor = signal('#2D6A4F');
   readonly newProjectError = signal<string | null>(null);
+  readonly showArchived = signal(false);
+  readonly addingTaskProjectId = signal<string | null>(null);
   readonly expandedColorPickerId = signal<string | null>(null);
   readonly expandedProjectIds = signal<ReadonlySet<string>>(new Set());
   readonly openProjectMenuId = signal<string | null>(null);
@@ -150,6 +153,33 @@ export class Projects implements OnInit {
 
   toggleProjectMenu(projectId: string): void {
     this.openProjectMenuId.update((current) => (current === projectId ? null : projectId));
+  }
+
+  toggleArchivedProjects(): void {
+    this.showArchived.update((showArchived) => !showArchived);
+    const workspace = this.workspace();
+    if (workspace) {
+      this.loadProjects(workspace.id);
+    }
+  }
+
+  addTaskFromProjectMenu(projectId: string): void {
+    this.openProjectMenuId.set(null);
+    this.addingTaskProjectId.set(projectId);
+    if (!this.isProjectTasksExpanded(projectId)) {
+      this.toggleProjectTasks(projectId);
+    }
+  }
+
+  cancelAddingTask(projectId: string): void {
+    if (this.addingTaskProjectId() === projectId) {
+      this.addingTaskProjectId.set(null);
+      this.updateProject(projectId, (project) => ({
+        ...project,
+        newTaskName: '',
+        taskError: null,
+      }));
+    }
   }
 
   toggleTaskMenu(taskId: string): void {
@@ -283,10 +313,27 @@ export class Projects implements OnInit {
     }
 
     this.openProjectMenuId.set(null);
-    this.projectService
-      .remove(id)
-      .pipe(switchMap(() => this.projectService.listByWorkspace(workspace.id, true)))
-      .subscribe(({ projects }) => this.setProjects(projects));
+    this.projectService.remove(id).subscribe({
+      next: () => this.loadProjects(workspace.id),
+    });
+  }
+
+  setProjectArchived(projectId: string, archived: boolean): void {
+    const workspace = this.workspace();
+    if (!workspace) {
+      return;
+    }
+
+    this.openProjectMenuId.set(null);
+    this.updateProject(projectId, (project) => ({ ...project, archiveError: null }));
+    this.projectService.update(projectId, { archived }).subscribe({
+      next: () => this.loadProjects(workspace.id),
+      error: () =>
+        this.updateProject(projectId, (project) => ({
+          ...project,
+          archiveError: `Could not ${archived ? 'archive' : 'restore'} the project. Try again.`,
+        })),
+    });
   }
 
   setNewTaskName(projectId: string, name: string): void {
@@ -304,7 +351,7 @@ export class Projects implements OnInit {
   createTask(projectId: string): void {
     const project = this.projects().find((item) => item.id === projectId);
     const name = project?.newTaskName.trim();
-    if (!name) {
+    if (!project || !name) {
       this.updateProject(projectId, (item) => ({
         ...item,
         taskError: 'Enter a task name before adding it.',
@@ -312,20 +359,23 @@ export class Projects implements OnInit {
       return;
     }
 
-    this.taskService.create(projectId, name, project!.newTaskPayType).subscribe({
-      next: ({ task }) =>
+    this.taskService.create(projectId, name, project.newTaskPayType).subscribe({
+      next: ({ task }) => {
         this.updateProject(projectId, (item) => ({
           ...item,
           tasks: this.sortTasks([...item.tasks, this.toTaskView(task)]),
           newTaskName: '',
           newTaskPayType: 'hourly',
           taskError: null,
-        })),
-      error: () =>
+        }));
+        this.addingTaskProjectId.set(null);
+      },
+      error: () => {
         this.updateProject(projectId, (item) => ({
           ...item,
           taskError: 'Could not create the task. Try again.',
-        })),
+        }));
+      },
     });
   }
 
@@ -424,26 +474,29 @@ export class Projects implements OnInit {
   }
 
   private loadProjects(workspaceId: string): void {
-    this.projectService.listByWorkspace(workspaceId, true).subscribe(({ projects }) => {
-      this.setProjects(projects);
-    });
+    this.projectService
+      .listByWorkspace(workspaceId, true, this.showArchived())
+      .subscribe(({ projects }) => this.setProjects(projects));
   }
 
   private setProjects(projects: ProjectDto[]): void {
     this.projects.set(
       this.sortProjects(
-        projects.map((project) => ({
-          ...project,
-          tasks: (project.tasks ?? []).map((task) => this.toTaskView(task)),
-          newTaskName: '',
-          newTaskPayType: 'hourly' as PayType,
-          taskError: null,
-          colorError: null,
-          editingDetails: false,
-          editedName: project.name,
-          editedProjectNumber: project.projectNumber ?? '',
-          detailsError: null,
-        })),
+        projects
+          .filter((project) => Boolean(project.archived) === this.showArchived())
+          .map((project) => ({
+            ...project,
+            tasks: (project.tasks ?? []).map((task) => this.toTaskView(task)),
+            newTaskName: '',
+            newTaskPayType: 'hourly' as PayType,
+            taskError: null,
+            colorError: null,
+            archiveError: null,
+            editingDetails: false,
+            editedName: project.name,
+            editedProjectNumber: project.projectNumber ?? '',
+            detailsError: null,
+          })),
       ),
     );
   }

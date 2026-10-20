@@ -17,17 +17,27 @@
       <input
         class="manual-time-input"
         type="text"
-        inputmode="numeric"
+        inputmode="text"
         autocomplete="off"
-        maxlength="4"
-        placeholder="HHMM"
+        maxlength="10"
+        placeholder="e.g. 9:15am"
         [value]="manualTimeEditing() ? manualTimeValue() : displayManualTime()"
-        [attr.aria-label]="ariaLabel + ', time in 24-hour HHMM format'"
+        [attr.aria-label]="ariaLabel + ', time (for example 9am, 9:15, or 0915)'"
         [attr.aria-invalid]="manualTimeInvalid() ? 'true' : null"
         (focus)="onManualTimeFocus($event)"
         (input)="onManualTimeInput($event)"
         (blur)="onManualTimeBlur()"
       />
+      @if (clearable && value) {
+        <button
+          class="clear-manual-time"
+          type="button"
+          [attr.aria-label]="'Clear ' + ariaLabel"
+          (click)="clearSelection()"
+        >
+          Clear
+        </button>
+      }
     } @else {
       <button
         class="date-time-trigger time-trigger"

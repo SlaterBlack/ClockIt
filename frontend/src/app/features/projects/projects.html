@@ -1,4 +1,9 @@
-<h1>Projects</h1>
+<div class="projects-heading">
+  <h1>Projects</h1>
+  <button class="btn btn-secondary" type="button" (click)="toggleArchivedProjects()">
+    {{ showArchived() ? 'Show active projects' : 'Show archived' }}
+  </button>
+</div>
 
 <div class="card new-project-card">
   <input
@@ -36,7 +41,15 @@
 
 <div class="project-list">
   @if (projects().length === 0) {
-    <div class="card"><p>No projects yet. Create your first project above.</p></div>
+    <div class="card">
+      <p>
+        @if (showArchived()) {
+          No archived projects.
+        } @else {
+          No projects yet. Create your first project above.
+        }
+      </p>
+    </div>
   } @else {
     @for (project of projects(); track project.id) {
       <section
@@ -133,6 +146,9 @@
             <span class="project-task-count">
               {{ project.tasks.length }} {{ project.tasks.length === 1 ? 'task' : 'tasks' }}
             </span>
+            @if (project.archived) {
+              <span class="archived-project-label">Archived</span>
+            }
           }
           <div class="project-options">
             <button
@@ -151,6 +167,30 @@
             </button>
             @if (openProjectMenuId() === project.id) {
               <div class="project-options-menu" role="menu">
+                @if (!project.archived) {
+                  <button
+                    type="button"
+                    role="menuitem"
+                    (click)="addTaskFromProjectMenu(project.id)"
+                  >
+                    Add task
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    (click)="setProjectArchived(project.id, true)"
+                  >
+                    Archive project
+                  </button>
+                } @else {
+                  <button
+                    type="button"
+                    role="menuitem"
+                    (click)="setProjectArchived(project.id, false)"
+                  >
+                    Restore project
+                  </button>
+                }
                 <button type="button" role="menuitem" (click)="editProjectDetails(project.id)">
                   Edit details
                 </button>
@@ -170,6 +210,9 @@
           <p class="error-text" role="alert">{{ error }}</p>
         }
         @if (project.detailsError; as error) {
+          <p class="error-text" role="alert">{{ error }}</p>
+        }
+        @if (project.archiveError; as error) {
           <p class="error-text" role="alert">{{ error }}</p>
         }
 
@@ -267,29 +310,41 @@
                 }
               </ul>
 
-              <div class="new-task-form">
-                <input
-                  type="text"
-                  [ngModel]="project.newTaskName"
-                  (ngModelChange)="setNewTaskName(project.id, $event)"
-                  [attr.aria-label]="'New task for ' + project.name"
-                  placeholder="New task name"
-                />
-                <select
-                  [attr.aria-label]="'Pay type for new task in ' + project.name"
-                  [value]="project.newTaskPayType"
-                  (change)="setNewTaskPayType(project.id, $any($event.target).value)"
-                >
-                  @for (type of payTypes; track type.value) {
-                    <option [value]="type.value" [selected]="type.value === project.newTaskPayType">
-                      {{ type.label }}
-                    </option>
-                  }
-                </select>
-                <button class="btn btn-primary" type="button" (click)="createTask(project.id)">
-                  Add task
-                </button>
-              </div>
+              @if (addingTaskProjectId() === project.id) {
+                <div class="new-task-form">
+                  <input
+                    type="text"
+                    [ngModel]="project.newTaskName"
+                    (ngModelChange)="setNewTaskName(project.id, $event)"
+                    [attr.aria-label]="'New task for ' + project.name"
+                    placeholder="New task name"
+                  />
+                  <select
+                    [attr.aria-label]="'Pay type for new task in ' + project.name"
+                    [value]="project.newTaskPayType"
+                    (change)="setNewTaskPayType(project.id, $any($event.target).value)"
+                  >
+                    @for (type of payTypes; track type.value) {
+                      <option
+                        [value]="type.value"
+                        [selected]="type.value === project.newTaskPayType"
+                      >
+                        {{ type.label }}
+                      </option>
+                    }
+                  </select>
+                  <button class="btn btn-primary" type="button" (click)="createTask(project.id)">
+                    Add task
+                  </button>
+                  <button
+                    class="btn btn-secondary"
+                    type="button"
+                    (click)="cancelAddingTask(project.id)"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              }
               @if (project.taskError; as error) {
                 <p class="error-text" role="alert">{{ error }}</p>
               }

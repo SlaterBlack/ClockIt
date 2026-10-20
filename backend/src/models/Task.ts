@@ -1,7 +1,7 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../config/database';
 
-export const PAY_TYPES = ['hourly', 'public-holiday', 'sick-leave', 'annual-leave'] as const;
+export const PAY_TYPES = ['hourly', 'public-holiday', 'sick-leave', 'annual-leave', 'unpaid'] as const;
 export type PayType = (typeof PAY_TYPES)[number];
 
 export interface TaskAttributes {

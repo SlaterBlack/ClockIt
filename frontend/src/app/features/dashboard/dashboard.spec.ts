@@ -40,6 +40,107 @@ describe('Dashboard', () => {
     httpMock.expectNone((request) => request.url.endsWith('/time-entries/start'));
   });
 
+  it('saves the running timer before starting a timer from a prior entry', () => {
+    const entry = {
+      id: 'e2',
+      description: 'Prepare annual leave',
+      startTime: '2026-10-19T09:00:00.000Z',
+      endTime: '2026-10-19T10:00:00.000Z',
+      durationSeconds: 3600,
+      isBillable: false,
+      userId: 'u1',
+      projectId: 'p2',
+      taskId: 't2',
+      createdAt: '',
+      updatedAt: '',
+    };
+    component.runningEntry.set({
+      ...entry,
+      id: 'e1',
+      description: 'Current work',
+      endTime: null,
+      durationSeconds: null,
+      projectId: 'p1',
+      taskId: 't1',
+    });
+    component.runningTimerEdit.set({
+      projectId: 'p1',
+      taskId: 't1',
+      startTime: '2026-10-20T09:00',
+    });
+
+    component.startTimerFromEntry(entry);
+
+    const stop = httpMock.expectOne(
+      (req) => req.method === 'POST' && req.url.endsWith('/time-entries/e1/stop'),
+    );
+    expect(stop.request.body).toEqual({
+      taskId: 't1',
+      startTime: new Date('2026-10-20T09:00').toISOString(),
+    });
+    httpMock.expectNone((req) => req.url.endsWith('/time-entries/start'));
+
+    stop.flush({ timeEntry: { ...entry, id: 'e1' } });
+    const start = httpMock.expectOne(
+      (req) => req.method === 'POST' && req.url.endsWith('/time-entries/start'),
+    );
+    expect(start.request.body).toEqual({ taskId: 't2', description: 'Prepare annual leave' });
+    start.flush({ timeEntry: { ...entry, endTime: null } });
+    httpMock
+      .expectOne((req) => req.method === 'GET' && req.url.endsWith('/time-entries'))
+      .flush({
+        timeEntries: [],
+      });
+
+    expect(component.isSubmitting()).toBe(false);
+  });
+
+  it('creates a completed manual entry and refreshes the tracker', () => {
+    component.openManualEntry();
+    component.updateManualEntry({
+      projectId: 'p1',
+      taskId: 't1',
+      description: 'Annual leave',
+      startTime: '2026-10-19T09:00',
+      endTime: '2026-10-19T17:00',
+      isBillable: false,
+    });
+    component.saveManualEntry();
+
+    const request = httpMock.expectOne(
+      (req) => req.method === 'POST' && req.url.endsWith('/time-entries'),
+    );
+    expect(request.request.body).toEqual({
+      taskId: 't1',
+      description: 'Annual leave',
+      isBillable: false,
+      startTime: new Date('2026-10-19T09:00').toISOString(),
+      endTime: new Date('2026-10-19T17:00').toISOString(),
+    });
+    request.flush({ timeEntry: { id: 'e2' } });
+    httpMock.expectOne((req) => req.url.endsWith('/time-entries')).flush({ timeEntries: [] });
+
+    expect(component.isManualEntryOpen()).toBe(false);
+    expect(component.isSavingManualEntry()).toBe(false);
+  });
+
+  it('requires the manual entry to end after it starts', () => {
+    component.openManualEntry();
+    component.updateManualEntry({
+      projectId: 'p1',
+      taskId: 't1',
+      startTime: '2026-10-19T10:00',
+      endTime: '2026-10-19T09:00',
+    });
+
+    component.saveManualEntry();
+
+    expect(component.manualEntryError()).toContain('End time must be after start time');
+    httpMock.expectNone(
+      (request) => request.method === 'POST' && request.url.endsWith('/time-entries'),
+    );
+  });
+
   it('saves running timer project, task, and start time when ending it', () => {
     const project = {
       id: 'p1',
@@ -48,6 +149,7 @@ describe('Dashboard', () => {
       color: '#2D6A4F',
       isBillable: true,
       workspaceId: 'w1',
+      archived: false,
       createdAt: '',
       updatedAt: '',
     };
@@ -114,6 +216,8 @@ describe('Dashboard', () => {
     startTime.value = '0940';
     startTime.dispatchEvent(new Event('input'));
     fixture.detectChanges();
+    startTime.blur();
+    fixture.detectChanges();
     expect(component.runningTimerEdit()?.startTime).toBe('2020-01-01T09:40');
     component.updateRunningTimerDraft({ startTime: '2020-01-01T09:30' });
     fixture.detectChanges();
@@ -142,6 +246,51 @@ describe('Dashboard', () => {
     expect(component.runningEntry()).toBeNull();
   });
 
+  it('keeps the server start seconds and milliseconds when displaying and stopping a timer', () => {
+    const exactStart = new Date(2026, 9, 20, 9, 0, 42, 321);
+    const running = {
+      id: 'e1',
+      description: 'Current work',
+      startTime: exactStart.toISOString(),
+      endTime: null,
+      durationSeconds: null,
+      isBillable: true,
+      userId: 'u1',
+      projectId: 'p1',
+      taskId: 't1',
+      createdAt: '',
+      updatedAt: '',
+    };
+    component.runningEntry.set(running);
+    component.runningTimerEdit.set({
+      projectId: 'p1',
+      taskId: 't1',
+      startTime: '2026-10-20T09:00',
+      originalStartTime: exactStart.toISOString(),
+    });
+    component.clockNow.set(exactStart.getTime() + 5_321);
+
+    expect(component.runningDuration()).toBe('00:00:05');
+
+    component.endAndSaveRunningTimer();
+    const stop = httpMock.expectOne(
+      (req) => req.method === 'POST' && req.url.endsWith('/time-entries/e1/stop'),
+    );
+    expect(stop.request.body.startTime).toBe(exactStart.toISOString());
+    stop.flush({
+      timeEntry: {
+        ...running,
+        endTime: new Date(exactStart.getTime() + 5_321).toISOString(),
+        durationSeconds: 5,
+      },
+    });
+    httpMock
+      .expectOne((req) => req.method === 'GET' && req.url.endsWith('/time-entries'))
+      .flush({
+        timeEntries: [],
+      });
+  });
+
   it('omits empty descriptions and uses non-typable date-time pickers', () => {
     const project = {
       id: 'p1',
@@ -150,6 +299,7 @@ describe('Dashboard', () => {
       color: '#2D6A4F',
       isBillable: true,
       workspaceId: 'w1',
+      archived: false,
       createdAt: '',
       updatedAt: '',
     };
@@ -183,8 +333,8 @@ describe('Dashboard', () => {
     expect(dateTimeFields.children.length).toBe(2);
     expect(dateTimeFields.querySelectorAll('app-date-time-picker').length).toBe(2);
     expect(dateTimeFields.querySelectorAll('input[type="datetime-local"]').length).toBe(0);
-    expect(dateTimeFields.querySelector('.manual-time-input')).toBeTruthy();
-    expect(dateTimeFields.querySelector('.time-trigger')).toBeTruthy();
+    expect(dateTimeFields.querySelectorAll('.manual-time-input').length).toBe(2);
+    expect(dateTimeFields.querySelector('.time-trigger')).toBeNull();
   });
 
   it('opens only the time entry the user clicks', () => {
@@ -195,6 +345,7 @@ describe('Dashboard', () => {
       color: '#2D6A4F',
       isBillable: true,
       workspaceId: 'w1',
+      archived: false,
       createdAt: '',
       updatedAt: '',
     };
@@ -259,6 +410,7 @@ describe('Dashboard', () => {
       color: '#2D6A4F',
       isBillable: true,
       workspaceId: 'w1',
+      archived: false,
       createdAt: '',
       updatedAt: '',
     };

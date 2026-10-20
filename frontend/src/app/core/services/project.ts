@@ -14,9 +14,14 @@ export class Project {
   listByWorkspace(
     workspaceId: string,
     includeTasks = false,
+    includeArchived = false,
   ): Observable<{ projects: ProjectDto[] }> {
     return this.http.get<{ projects: ProjectDto[] }>(this.apiUrl, {
-      params: includeTasks ? { workspaceId, includeTasks: 'true' } : { workspaceId },
+      params: {
+        workspaceId,
+        ...(includeTasks ? { includeTasks: 'true' } : {}),
+        ...(includeArchived ? { includeArchived: 'true' } : {}),
+      },
     });
   }
 
@@ -32,7 +37,7 @@ export class Project {
 
   update(
     id: string,
-    changes: Partial<Pick<ProjectDto, 'color' | 'name' | 'projectNumber'>>,
+    changes: Partial<Pick<ProjectDto, 'color' | 'name' | 'projectNumber' | 'archived'>>,
   ): Observable<{ project: ProjectDto }> {
     return this.http.patch<{ project: ProjectDto }>(`${this.apiUrl}/${id}`, changes);
   }

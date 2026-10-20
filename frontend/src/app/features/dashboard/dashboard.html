@@ -1,4 +1,9 @@
-<h1>Time Tracker</h1>
+<div class="tracker-heading">
+  <h1>Time Tracker</h1>
+  <button class="btn btn-secondary" type="button" (click)="openManualEntry()">
+    Add time entry
+  </button>
+</div>
 
 <div class="card timer-card" [class.timer-card-running]="runningEntry()">
   @if (runningEntry()) {
@@ -89,6 +94,85 @@
   }
 </div>
 
+@if (isManualEntryOpen()) {
+  <section class="card manual-entry-form" aria-labelledby="manual-entry-title">
+    <h2 id="manual-entry-title">Add time entry</h2>
+    <div class="manual-entry-fields">
+      <select
+        [ngModel]="manualEntry()?.projectId"
+        (ngModelChange)="onManualProjectChange($event)"
+        aria-label="Project for manual time entry"
+      >
+        <option value="">Select project</option>
+        @for (project of projects(); track project.id) {
+          <option [value]="project.id">
+            {{ project.projectNumber ? project.projectNumber + ' ' : '' }}{{ project.name }}
+          </option>
+        }
+      </select>
+      <select
+        [ngModel]="manualEntry()?.taskId"
+        (ngModelChange)="updateManualEntry({ taskId: $event })"
+        [disabled]="!manualEntry()?.projectId || manualTasks().length === 0"
+        aria-label="Task for manual time entry"
+      >
+        <option value="">Select task</option>
+        @for (task of manualTasks(); track task.id) {
+          <option [value]="task.id">{{ task.name }}</option>
+        }
+      </select>
+      <input
+        type="text"
+        maxlength="500"
+        placeholder="Description"
+        aria-label="Manual time entry description"
+        [ngModel]="manualEntry()?.description"
+        (ngModelChange)="updateManualEntry({ description: $event })"
+      />
+      <div class="manual-entry-date-time-fields">
+        <app-date-time-picker
+          label="Start"
+          ariaLabel="Start date and time for manual entry"
+          [manualTime]="true"
+          [value]="manualEntry()?.startTime ?? ''"
+          (valueChange)="updateManualEntry({ startTime: $event })"
+        />
+        <app-date-time-picker
+          label="End"
+          ariaLabel="End date and time for manual entry"
+          [alignRight]="true"
+          [manualTime]="true"
+          [value]="manualEntry()?.endTime ?? ''"
+          (valueChange)="updateManualEntry({ endTime: $event })"
+        />
+      </div>
+      <label class="entry-billable">
+        <input
+          type="checkbox"
+          aria-label="Billable"
+          [ngModel]="manualEntry()?.isBillable"
+          (ngModelChange)="updateManualEntry({ isBillable: $event })"
+        />
+        Billable
+      </label>
+    </div>
+    @if (manualEntryError(); as error) {
+      <p class="error-text" role="alert">{{ error }}</p>
+    }
+    <div class="entry-edit-actions">
+      <button
+        class="btn btn-primary"
+        type="button"
+        [disabled]="isSavingManualEntry()"
+        (click)="saveManualEntry()"
+      >
+        Save entry
+      </button>
+      <button class="btn btn-secondary" type="button" (click)="closeManualEntry()">Cancel</button>
+    </div>
+  </section>
+}
+
 @if (errorMessage(); as error) {
   <p class="error-text" role="alert">{{ error }}</p>
 }
@@ -106,7 +190,31 @@
         </header>
         <div class="day-entry-list">
           @for (entry of day.entries; track entry.id) {
-            <div class="time-entry-item">
+            <div
+              class="time-entry-item"
+              [class.is-editing]="editingEntry()?.id === entry.id"
+            >
+              <button
+                class="entry-play-button"
+                type="button"
+                [disabled]="!entry.endTime || isSubmitting()"
+                [attr.aria-label]="
+                  'Start timer from ' + (entry.description || entry.task?.name || 'time entry')
+                "
+                [attr.title]="
+                  entry.endTime ? 'Start a timer from this entry' : 'This timer is already running'
+                "
+                (click)="startTimerFromEntry(entry)"
+              >
+                <svg
+                  class="entry-play-icon"
+                  viewBox="0 0 16 16"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M4 2.9a1 1 0 0 1 1.5-.8l8 5a1 1 0 0 1 0 1.7l-8 5A1 1 0 0 1 4 13z" />
+                </svg>
+              </button>
               <article
                 class="time-entry"
                 [class.is-editing]="editingEntry()?.id === entry.id"
@@ -193,6 +301,7 @@
                         label="End"
                         ariaLabel="End date and time"
                         [alignRight]="true"
+                        [manualTime]="true"
                         [value]="editingEntry()?.endTime ?? ''"
                         [clearable]="true"
                         (valueChange)="updateEntryDraft({ endTime: $event })"

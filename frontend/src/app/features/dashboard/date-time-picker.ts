@@ -124,30 +124,31 @@ export class DateTimePicker implements OnChanges {
       return;
     }
     const input = event.target;
-    const value = input.value.replace(/\D/g, '').slice(0, 4);
-    if (input.value !== value) {
-      input.value = value;
-    }
+    const value = input.value;
     this.manualTimeValue.set(value);
-    if (!this.isValidManualTime(value)) {
-      return;
+    const parsed = this.parseManualTime(value);
+    if (parsed) {
+      this.selectedHour.set(this.pad(parsed.hour));
+      this.selectedMinute.set(this.pad(parsed.minute));
     }
-    this.selectedHour.set(value.slice(0, 2));
-    this.selectedMinute.set(value.slice(2));
-    this.emitDateTime(this.parseValue(this.value) ?? new Date(), false);
   }
 
   onManualTimeBlur(): void {
     const value = this.manualTimeValue();
-    if (!this.isValidManualTime(value)) {
+    const parsed = this.parseManualTime(value);
+    if (!parsed) {
       this.syncManualTimeFromValue();
+    } else {
+      this.selectedHour.set(this.pad(parsed.hour));
+      this.selectedMinute.set(this.pad(parsed.minute));
+      this.emitDateTime(this.parseValue(this.value) ?? new Date(), false);
     }
     this.manualTimeEditing.set(false);
   }
 
   manualTimeInvalid(): boolean {
     const value = this.manualTimeValue();
-    return value.length === 4 && !this.isValidManualTime(value);
+    return value.trim().length > 0 && !this.parseManualTime(value);
   }
 
   isSelectedDate(date: Date): boolean {
@@ -265,7 +266,43 @@ export class DateTimePicker implements OnChanges {
     return event.target instanceof HTMLSelectElement ? event.target.value : null;
   }
 
-  private isValidManualTime(value: string): boolean {
-    return /^\d{4}$/.test(value) && Number(value.slice(0, 2)) < 24 && Number(value.slice(2)) < 60;
+  private parseManualTime(value: string): { hour: number; minute: number } | null {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+
+    let hour: number;
+    let minute: number;
+    let period: string | undefined;
+
+    const compact = /^(\d{3,4})$/.exec(normalized);
+    if (compact) {
+      const digits = compact[1];
+      hour = Number(digits.slice(0, digits.length - 2));
+      minute = Number(digits.slice(-2));
+    } else {
+      const formatted = /^(\d{1,2})(?:[:.](\d{1,2}))?\s*(am|pm)?$/.exec(normalized);
+      if (!formatted) {
+        return null;
+      }
+      hour = Number(formatted[1]);
+      minute = Number(formatted[2] ?? '0');
+      period = formatted[3];
+    }
+
+    if (minute > 59) {
+      return null;
+    }
+    if (period) {
+      if (hour < 1 || hour > 12) {
+        return null;
+      }
+      hour = (hour % 12) + (period === 'pm' ? 12 : 0);
+    } else if (hour > 23) {
+      return null;
+    }
+
+    return { hour, minute };
   }
 }

@@ -69,8 +69,9 @@ export const listProjects = asyncHandler(
 
     await assertWorkspaceExists(workspaceId);
     const includeTasks = req.query.includeTasks === "true";
+    const includeArchived = req.query.includeArchived === "true";
     const projects = await Project.findAll({
-      where: { workspaceId },
+      where: { workspaceId, ...(includeArchived ? {} : { archived: false }) },
       ...(includeTasks ? { include: [{ model: Task, as: "tasks" }] } : {}),
       order: [
         ["projectNumber", "ASC"],
@@ -125,13 +126,18 @@ export const updateProject = asyncHandler(
   async (req: Request, res: Response) => {
     const project = await findProject(req.params.id);
 
-    const { color, name, projectNumber } = req.body as {
+    const { color, name, projectNumber, archived } = req.body as {
       color?: string;
       name?: string;
       projectNumber?: string;
+      archived?: boolean;
     };
-    const updates: { color?: string; name?: string; projectNumber?: string } =
-      {};
+    const updates: {
+      color?: string;
+      name?: string;
+      projectNumber?: string;
+      archived?: boolean;
+    } = {};
 
     if (color !== undefined) {
       if (typeof color !== "string" || !/^#[\da-f]{6}$/i.test(color)) {
@@ -151,6 +157,12 @@ export const updateProject = asyncHandler(
         throw new ApiError(400, "projectNumber must be exactly three digits");
       }
       updates.projectNumber = projectNumber;
+    }
+    if (archived !== undefined) {
+      if (typeof archived !== "boolean") {
+        throw new ApiError(400, "archived must be a boolean");
+      }
+      updates.archived = archived;
     }
     if (Object.keys(updates).length === 0) {
       throw new ApiError(400, "At least one project field must be provided");

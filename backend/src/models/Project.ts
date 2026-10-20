@@ -7,6 +7,7 @@ export interface ProjectAttributes {
   projectNumber: string | null;
   color: string;
   isBillable: boolean;
+  archived: boolean;
   workspaceId: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -14,7 +15,7 @@ export interface ProjectAttributes {
 
 export type ProjectCreationAttributes = Optional<
   ProjectAttributes,
-  'id' | 'projectNumber' | 'color' | 'isBillable'
+  'id' | 'projectNumber' | 'color' | 'isBillable' | 'archived'
 >;
 
 export class Project
@@ -26,6 +27,7 @@ export class Project
   public projectNumber!: string | null;
   public color!: string;
   public isBillable!: boolean;
+  public archived!: boolean;
   public workspaceId!: string;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -55,6 +57,11 @@ Project.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true,
+    },
+    archived: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     },
     workspaceId: {
       type: DataTypes.UUID,

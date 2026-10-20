@@ -15,7 +15,7 @@ src/
     features/
       auth/login/      # login page
       auth/register/   # registration page
-      dashboard/       # time tracker page (project/task selection, start/stop timer, entries)
+      dashboard/       # time tracker page (start/stop, manual entries, replay from history)
       projects/        # project and task management
       reports/         # summary and detailed time reports with date/project/task/user/billable filters
     layout/
@@ -33,6 +33,8 @@ To keep the UI uniform without a component library, build new pages with the cla
 In development the app calls the API at the relative path `/api` (see `src/environments/environment.development.ts`); the dev server forwards it to the backend on `http://localhost:4000` via `proxy.conf.json`. Update `environment.ts` for the production API URL.
 
 The Reports page supports date presets/custom dates, project, task, billable status, and user filters, summary totals, a project breakdown, and a detailed entry table. Its default is the signed-in user's entries; selecting all users includes every registered user's entries in this app.
+
+Tracker time inputs accept 12-hour and 24-hour text formats such as `9am`, `9.15am`, `9:15`, `0915`, and `9.15`. Valid input is normalized when the field loses focus; the date remains separately editable.
 
 ### Report exports
 

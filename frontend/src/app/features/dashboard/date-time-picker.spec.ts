@@ -63,7 +63,7 @@ describe('DateTimePicker', () => {
     expect(component.openPickerType()).toBe(null);
   });
 
-  it('accepts start times as four-digit 24-hour input and rejects invalid values', () => {
+  it('accepts text time formats and normalizes them to 24-hour values', () => {
     fixture.componentRef.setInput('manualTime', true);
     fixture.detectChanges();
     const emittedValues: string[] = [];
@@ -79,11 +79,25 @@ describe('DateTimePicker', () => {
     time.value = '1745';
     time.dispatchEvent(new Event('input'));
     fixture.detectChanges();
-    expect(emittedValues).toEqual(['2026-10-19T17:45']);
-    fixture.componentRef.setInput('value', emittedValues[0]);
     time.blur();
     fixture.detectChanges();
+    expect(emittedValues).toEqual(['2026-10-19T17:45']);
     expect(time.value).toBe(component.displayManualTime());
+
+    for (const [input, expected] of [
+      ['9am', '2026-10-19T09:00'],
+      ['9.15am', '2026-10-19T09:15'],
+      ['9:15', '2026-10-19T09:15'],
+      ['0915', '2026-10-19T09:15'],
+      ['9.15', '2026-10-19T09:15'],
+    ]) {
+      time.focus();
+      time.value = input;
+      time.dispatchEvent(new Event('input'));
+      time.blur();
+      fixture.detectChanges();
+      expect(emittedValues.at(-1)).toBe(expected);
+    }
 
     time.focus();
     fixture.detectChanges();
@@ -91,7 +105,7 @@ describe('DateTimePicker', () => {
     time.dispatchEvent(new Event('input'));
     fixture.detectChanges();
     expect(time.getAttribute('aria-invalid')).toBe('true');
-    expect(emittedValues).toEqual(['2026-10-19T17:45']);
+    expect(emittedValues).toHaveLength(6);
     time.blur();
     fixture.detectChanges();
     expect(time.value).toBe(component.displayManualTime());

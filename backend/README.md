@@ -36,6 +36,7 @@ src/
    psql -U postgres -d clockify_dupe -f migrations/20261019-add-project-numbers.sql
    psql -U postgres -d clockify_dupe -f migrations/20261019-add-task-pay-type.sql
    psql -U postgres -d clockify_dupe -f migrations/20261020-share-workspace.sql
+   psql -U postgres -d clockify_dupe -f migrations/20261020-add-project-archived.sql
    ```
 4. Install dependencies:
    ```powershell
@@ -66,15 +67,16 @@ All routes are mounted under `/api`. New projects require a three-digit `project
 | POST   | `/workspaces`             | Yes  | Create the shared workspace; returns the existing one if it already exists |
 | GET    | `/workspaces/:id`         | Yes  | Get a workspace                     |
 | DELETE | `/workspaces/:id`         | Yes  | Delete a workspace (creator only)   |
-| GET    | `/projects?workspaceId=`  | Yes  | List projects in a workspace; `includeTasks=true` embeds project tasks |
+| GET    | `/projects?workspaceId=`  | Yes  | List active projects; `includeTasks=true` embeds tasks and `includeArchived=true` includes archived projects |
 | POST   | `/projects`               | Yes  | Create a project                    |
-| PATCH  | `/projects/:id`            | Yes  | Update project details or color      |
+| PATCH  | `/projects/:id`            | Yes  | Update project details, color or archive status |
 | DELETE | `/projects/:id`           | Yes  | Delete a project                    |
 | GET    | `/projects/:projectId/tasks` | Yes | List tasks for a project          |
-| POST   | `/projects/:projectId/tasks` | Yes | Create a task in a project; optional `payType` (`hourly` default, `public-holiday`, `sick-leave`, `annual-leave`) |
+| POST   | `/projects/:projectId/tasks` | Yes | Create a task in a project; optional `payType` (`hourly` default, `public-holiday`, `sick-leave`, `annual-leave`, `unpaid`) |
 | PATCH  | `/projects/:projectId/tasks/:taskId` | Yes | Update a task name and/or `payType`            |
 | DELETE | `/projects/:projectId/tasks/:taskId` | Yes | Delete an unused task      |
 | GET    | `/time-entries`           | Yes  | List the caller's time entries      |
+| POST   | `/time-entries`           | Yes  | Manually create a completed entry (requires task, start and end times) |
 | POST   | `/time-entries/start`     | Yes  | Start a timer (requires `taskId`)   |
 | POST   | `/time-entries/:id/stop`  | Yes  | Stop a running timer; optionally save `taskId` and `startTime` with the stop |
 | PATCH  | `/time-entries/:id`       | Yes  | Update description, task/project, billable status, start/end; recalculates duration |
@@ -83,7 +85,9 @@ All routes are mounted under `/api`. New projects require a three-digit `project
 | GET    | `/reports/time-entries?userId=` | Yes | List report entries for the caller, one selected user, or all users |
 
 Authenticated routes expect `Authorization: Bearer <token>`.
-Projects and their tasks are shared by every signed-in user (there is a single shared workspace), so any user can view, edit and track time against any project. Every newly started or updated time entry must have a task that belongs to an existing project. Tasks already referenced by a time entry cannot be deleted. The schema migration leaves `task_id` nullable only to preserve historical records created before task assignment was required.
+Projects and their tasks are shared by every signed-in user (there is a single shared workspace), so any user can view, edit and track time against any project. Tasks support hourly, public holiday, sick leave, annual leave and unpaid pay types. Every newly created, started or updated time entry must have a task that belongs to an existing project. Tasks already referenced by a time entry cannot be deleted. The schema migration leaves `task_id` nullable only to preserve historical records created before task assignment was required.
+
+Archived projects are hidden from the active project list and cannot be used to create new timers or manual entries. The Projects page can show archived projects for restoration; historical entries and an already-running timer remain accessible.
 
 Reports default to the authenticated user's entries. The `userId=all` option includes every registered user's entries; a specific `userId` selects one user's entries. This is global visibility across the app rather than workspace-scoped. The report user list and entry owner association expose only user IDs and names.
 

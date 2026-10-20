@@ -12,6 +12,7 @@ const RATES: Record<PayType, string> = {
   'public-holiday': 'Public Holiday',
   'sick-leave': 'Personal Leave',
   'annual-leave': 'Annual Leave',
+  unpaid: 'Unpaid',
 };
 
 function makeEntry(overrides: Partial<TimeEntry> = {}): TimeEntry {
@@ -75,11 +76,13 @@ describe('report export helpers', () => {
   it('totals completed hours per employee, day and pay type for Xero payroll timesheets', () => {
     const nextDay = (hour: number) => new Date(2026, 9, 20, hour).toISOString();
     const sickTask = { id: 't2', name: 'Out sick', payType: 'sick-leave' as const };
+    const unpaidTask = { id: 't3', name: 'Unpaid leave', payType: 'unpaid' as const };
     const csv = buildXeroTimesheetCsv(
       [
         makeEntry({ id: 'a' }),
         makeEntry({ id: 'b', durationSeconds: 1800 }),
         makeEntry({ id: 'c', isBillable: false, durationSeconds: 3600, task: sickTask }),
+        makeEntry({ id: 'g', durationSeconds: 1800, task: unpaidTask }),
         makeEntry({ id: 'd', startTime: nextDay(9), endTime: nextDay(12), durationSeconds: 10800 }),
         makeEntry({
           id: 'e',
@@ -98,6 +101,7 @@ describe('report export helpers', () => {
       'Employee,Date,Earnings Rate,Hours',
       'Alex Doe,19/10/2026,Ordinary Hours,2.00',
       'Alex Doe,19/10/2026,Personal Leave,1.00',
+      'Alex Doe,19/10/2026,Unpaid,0.50',
       'Alex Doe,20/10/2026,Ordinary Hours,3.00',
       'Blake Roe,19/10/2026,Ordinary Hours,2.00',
     ]);

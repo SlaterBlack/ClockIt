@@ -27,7 +27,7 @@ export const listTimeEntries = asyncHandler(async (req: Request, res: Response) 
 });
 
 // Projects and tasks are shared by every user, so a task only needs to exist (and have a project).
-async function findTask(taskId: string): Promise<Task> {
+async function findTask(taskId: string, allowArchivedProject = false): Promise<Task> {
   const task = await Task.findByPk(taskId);
   if (!task) {
     throw new ApiError(404, 'Task not found');
@@ -36,6 +36,9 @@ async function findTask(taskId: string): Promise<Task> {
   const project = await Project.findByPk(task.projectId);
   if (!project) {
     throw new ApiError(404, 'Task project not found');
+  }
+  if (project.archived && !allowArchivedProject) {
+    throw new ApiError(409, 'Project is archived');
   }
 
   return task;
@@ -73,6 +76,49 @@ export const startTimeEntry = asyncHandler(async (req: Request, res: Response) =
   res.status(201).json({ timeEntry });
 });
 
+/** Creates a completed time entry without starting a timer. */
+export const createTimeEntry = asyncHandler(async (req: Request, res: Response) => {
+  const { description, taskId, isBillable, startTime, endTime } = req.body as {
+    description?: string;
+    taskId?: string;
+    isBillable?: boolean;
+    startTime?: unknown;
+    endTime?: unknown;
+  };
+
+  if (typeof taskId !== 'string' || !taskId) {
+    throw new ApiError(400, 'taskId is required before a time entry can be saved');
+  }
+  const task = await findTask(taskId);
+  if (description !== undefined && (typeof description !== 'string' || description.length > 500)) {
+    throw new ApiError(400, 'description must be 500 characters or fewer');
+  }
+  if (isBillable !== undefined && typeof isBillable !== 'boolean') {
+    throw new ApiError(400, 'isBillable must be a boolean');
+  }
+
+  const parsedStartTime = parseEntryDate(startTime, 'startTime');
+  const parsedEndTime = parseEntryDate(endTime, 'endTime');
+  if (parsedEndTime <= parsedStartTime) {
+    throw new ApiError(400, 'endTime must be after startTime');
+  }
+  if (parsedEndTime > new Date()) {
+    throw new ApiError(400, 'endTime cannot be in the future');
+  }
+
+  const timeEntry = await TimeEntry.create({
+    description: description ?? '',
+    taskId: task.id,
+    projectId: task.projectId,
+    isBillable,
+    startTime: parsedStartTime,
+    endTime: parsedEndTime,
+    durationSeconds: Math.round((parsedEndTime.getTime() - parsedStartTime.getTime()) / 1000),
+    userId: req.user!.id,
+  });
+  res.status(201).json({ timeEntry });
+});
+
 /** Stops the currently running timer and records its duration. */
 export const stopTimeEntry = asyncHandler(async (req: Request, res: Response) => {
   const timeEntry = await TimeEntry.findOne({
@@ -84,14 +130,16 @@ export const stopTimeEntry = asyncHandler(async (req: Request, res: Response) =>
   if (timeEntry.endTime) {
     throw new ApiError(409, 'Time entry is already stopped');
   }
-  const { taskId, startTime } = (req.body ?? {}) as { taskId?: unknown; startTime?: unknown };
+  const { taskId, startTime } = (req.body ?? {}) as {
+    taskId?: unknown;
+    startTime?: unknown;
+  };
   const effectiveTaskId = taskId ?? timeEntry.taskId;
   if (typeof effectiveTaskId !== 'string' || !effectiveTaskId) {
     throw new ApiError(409, 'Assign a task before stopping this timer');
   }
-  const task = await findTask(effectiveTaskId);
-  const parsedStartTime =
-    startTime === undefined ? timeEntry.startTime : parseEntryDate(startTime, 'startTime');
+  const task = await findTask(effectiveTaskId, true);
+  const parsedStartTime = startTime === undefined ? timeEntry.startTime : parseEntryDate(startTime, 'startTime');
 
   const endTime = new Date();
   if (parsedStartTime >= endTime) {
@@ -129,7 +177,7 @@ export const updateTimeEntry = asyncHandler(async (req: Request, res: Response) 
   if (!effectiveTaskId) {
     throw new ApiError(400, 'taskId is required before a time entry can be saved');
   }
-  const task = await findTask(effectiveTaskId);
+  const task = await findTask(effectiveTaskId, true);
 
   if (description !== undefined && (typeof description !== 'string' || description.length > 500)) {
     throw new ApiError(400, 'description must be 500 characters or fewer');

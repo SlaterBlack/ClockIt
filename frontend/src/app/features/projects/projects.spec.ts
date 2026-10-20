@@ -138,6 +138,54 @@ describe('Projects', () => {
     expect(component.projects()[0].name).toBe('Renamed project');
   });
 
+  it('archives a project from its options menu and removes it from the active list', () => {
+    component.projects.set([makeProject('p1', '001', 'Example project')]);
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.project-options-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (
+      fixture.nativeElement.querySelector('[role="menuitem"]:nth-child(2)') as HTMLButtonElement
+    ).click();
+
+    const request = httpMock.expectOne(
+      (req) => req.method === 'PATCH' && req.url.endsWith('/projects/p1'),
+    );
+    expect(request.request.body).toEqual({ archived: true });
+    request.flush({ project: { ...exampleProject, archived: true } });
+
+    const reload = httpMock.expectOne((req) => req.url.endsWith('/projects'));
+    expect(reload.request.params.get('includeArchived')).toBeNull();
+    reload.flush({ projects: [] });
+    expect(component.projects()).toEqual([]);
+  });
+
+  it('loads archived projects in the archived view', () => {
+    component.toggleArchivedProjects();
+    const request = httpMock.expectOne((req) => req.url.endsWith('/projects'));
+    expect(request.request.params.get('includeArchived')).toBe('true');
+    request.flush({
+      projects: [{ ...exampleProject, archived: true, tasks: [] }],
+    });
+
+    expect(component.projects().map((project) => project.name)).toEqual(['Example project']);
+    expect(component.projects()[0].archived).toBe(true);
+  });
+
+  it('opens task creation from the project options menu', () => {
+    component.projects.set([makeProject('p1', '001', 'Example project')]);
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.project-options-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const addTaskOption = [
+      ...fixture.nativeElement.querySelectorAll('.project-options-menu [role="menuitem"]'),
+    ].find((item) => item.textContent.trim() === 'Add task') as HTMLButtonElement;
+    addTaskOption.click();
+    fixture.detectChanges();
+
+    expect(component.isProjectTasksExpanded('p1')).toBe(true);
+    expect(fixture.nativeElement.querySelector('.new-task-form')).toBeTruthy();
+  });
+
   it('requires a three-digit project number when creating a project', () => {
     component.newProjectName.set('New project');
     component.newProjectNumber.set('12');
@@ -261,6 +309,7 @@ describe('Projects', () => {
       color: '#2D6A4F',
       isBillable: true,
       workspaceId: 'w1',
+      archived: false,
       createdAt: '',
       updatedAt: '',
       tasks: [] as Array<ReturnType<typeof makeTask>>,
@@ -268,6 +317,7 @@ describe('Projects', () => {
       newTaskPayType: 'hourly' as const,
       taskError: null,
       colorError: null,
+      archiveError: null,
       editingDetails: false,
       editedName: name,
       editedProjectNumber: projectNumber,
@@ -282,6 +332,7 @@ describe('Projects', () => {
     color: '#2D6A4F',
     isBillable: true,
     workspaceId: 'w1',
+    archived: false,
     createdAt: '',
     updatedAt: '',
   };

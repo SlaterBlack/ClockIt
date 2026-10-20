@@ -26,6 +26,16 @@ interface RunningTimerEdit {
   projectId: string;
   taskId: string;
   startTime: string;
+  originalStartTime?: string;
+}
+
+interface ManualEntryDraft {
+  projectId: string;
+  taskId: string;
+  description: string;
+  startTime: string;
+  endTime: string;
+  isBillable: boolean;
 }
 
 interface TimeEntryDay {
@@ -90,6 +100,11 @@ export class Dashboard implements OnInit {
   readonly editingTasks = signal<TaskDto[]>([]);
   readonly editingError = signal<string | null>(null);
   readonly isSavingEntry = signal(false);
+  readonly isManualEntryOpen = signal(false);
+  readonly manualEntry = signal<ManualEntryDraft | null>(null);
+  readonly manualTasks = signal<TaskDto[]>([]);
+  readonly manualEntryError = signal<string | null>(null);
+  readonly isSavingManualEntry = signal(false);
 
   ngOnInit(): void {
     this.refresh();
@@ -138,6 +153,160 @@ export class Dashboard implements OnInit {
     });
   }
 
+  startTimerFromEntry(entry: TimeEntryDto): void {
+    if (!entry.taskId || !entry.endTime || this.isSubmitting()) {
+      return;
+    }
+
+    const running = this.runningEntry();
+    if (!running) {
+      this.startEntryTimer(entry, false);
+      return;
+    }
+
+    const draft = this.runningTimerEdit();
+    if (!draft?.taskId || !draft.projectId || !draft.startTime) {
+      this.errorMessage.set('Select a project and task and enter a valid start time before switching timers.');
+      return;
+    }
+    const start = this.getRunningStartTime(draft);
+    if (Number.isNaN(start.getTime()) || start >= new Date()) {
+      this.errorMessage.set('Enter a valid start time before switching timers.');
+      return;
+    }
+
+    this.isSubmitting.set(true);
+    this.errorMessage.set(null);
+    this.timeEntryService
+      .stop(running.id, { taskId: draft.taskId, startTime: start.toISOString() })
+      .subscribe({
+        next: () => this.startEntryTimer(entry, true),
+        error: () => {
+          this.isSubmitting.set(false);
+          this.errorMessage.set('Could not save the running timer. The selected entry was not started.');
+        },
+      });
+  }
+
+  private startEntryTimer(entry: TimeEntryDto, previousTimerSaved: boolean): void {
+    if (!entry.taskId) {
+      this.isSubmitting.set(false);
+      this.errorMessage.set('The selected entry has no task and cannot be started.');
+      return;
+    }
+
+    this.isSubmitting.set(true);
+    this.errorMessage.set(null);
+    this.timeEntryService.start({ taskId: entry.taskId, description: entry.description }).subscribe({
+      next: () => {
+        this.description.set('');
+        this.selectedTaskId.set('');
+        this.selectedProjectId.set('');
+        this.tasks.set([]);
+        this.isSubmitting.set(false);
+        this.refresh();
+      },
+      error: () => {
+        this.isSubmitting.set(false);
+        this.errorMessage.set(
+          previousTimerSaved
+            ? 'The running timer was saved, but the selected entry could not be started.'
+            : 'Could not start the selected entry. Check its project and task, then try again.',
+        );
+      },
+    });
+  }
+
+  openManualEntry(): void {
+    const end = new Date();
+    end.setSeconds(0, 0);
+    const start = new Date(end.getTime() - 60 * 60 * 1000);
+    this.manualEntry.set({
+      projectId: '',
+      taskId: '',
+      description: '',
+      startTime: this.toLocalDateTime(start.toISOString()),
+      endTime: this.toLocalDateTime(end.toISOString()),
+      isBillable: true,
+    });
+    this.manualTasks.set([]);
+    this.manualEntryError.set(null);
+    this.isManualEntryOpen.set(true);
+  }
+
+  closeManualEntry(): void {
+    this.isManualEntryOpen.set(false);
+    this.manualEntry.set(null);
+    this.manualTasks.set([]);
+    this.manualEntryError.set(null);
+  }
+
+  updateManualEntry(changes: Partial<ManualEntryDraft>): void {
+    this.manualEntry.update((draft) => (draft ? { ...draft, ...changes } : null));
+  }
+
+  onManualProjectChange(projectId: string): void {
+    this.updateManualEntry({ projectId, taskId: '' });
+    this.manualTasks.set([]);
+    this.manualEntryError.set(null);
+    if (projectId) {
+      this.taskService.listByProject(projectId).subscribe({
+        next: ({ tasks }) => this.manualTasks.set(tasks),
+        error: () => this.manualEntryError.set('Could not load tasks for this project.'),
+      });
+    }
+  }
+
+  saveManualEntry(): void {
+    const draft = this.manualEntry();
+    if (!draft?.taskId) {
+      this.manualEntryError.set('Select a project and task.');
+      return;
+    }
+    if (!draft.startTime || !draft.endTime) {
+      this.manualEntryError.set('Enter a start and end date and time.');
+      return;
+    }
+    const start = new Date(draft.startTime);
+    const end = new Date(draft.endTime);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      this.manualEntryError.set('Enter valid start and end date and times.');
+      return;
+    }
+    if (end <= start) {
+      this.manualEntryError.set('End time must be after start time.');
+      return;
+    }
+    if (end > new Date()) {
+      this.manualEntryError.set('End time cannot be in the future.');
+      return;
+    }
+
+    this.isSavingManualEntry.set(true);
+    this.manualEntryError.set(null);
+    this.timeEntryService
+      .create({
+        taskId: draft.taskId,
+        description: draft.description,
+        isBillable: draft.isBillable,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      })
+      .subscribe({
+        next: () => {
+          this.isSavingManualEntry.set(false);
+          this.closeManualEntry();
+          this.refresh();
+        },
+        error: () => {
+          this.isSavingManualEntry.set(false);
+          this.manualEntryError.set(
+            'Could not save the time entry. Check the details and try again.',
+          );
+        },
+      });
+  }
+
   onRunningProjectChange(projectId: string): void {
     this.runningTimerEdit.update((draft) => (draft ? { ...draft, projectId, taskId: '' } : null));
     this.errorMessage.set(null);
@@ -163,7 +332,7 @@ export class Dashboard implements OnInit {
       return;
     }
 
-    const start = new Date(draft.startTime);
+    const start = this.getRunningStartTime(draft);
     if (Number.isNaN(start.getTime())) {
       this.errorMessage.set('Enter a valid start date and time.');
       return;
@@ -175,16 +344,20 @@ export class Dashboard implements OnInit {
 
     this.isSubmitting.set(true);
     this.errorMessage.set(null);
-    this.timeEntryService.stop(running.id, { taskId: draft.taskId, startTime: start.toISOString() }).subscribe({
-      next: () => {
-        this.isSubmitting.set(false);
-        this.refresh();
-      },
-      error: () => {
-        this.isSubmitting.set(false);
-        this.errorMessage.set('Could not save the timer changes or end the timer. Check the details and try again.');
-      },
-    });
+    this.timeEntryService
+      .stop(running.id, { taskId: draft.taskId, startTime: start.toISOString() })
+      .subscribe({
+        next: () => {
+          this.isSubmitting.set(false);
+          this.refresh();
+        },
+        error: () => {
+          this.isSubmitting.set(false);
+          this.errorMessage.set(
+            'Could not save the timer changes or end the timer. Check the details and try again.',
+          );
+        },
+      });
   }
 
   runningDuration(): string {
@@ -193,7 +366,7 @@ export class Dashboard implements OnInit {
       return '00:00:00';
     }
 
-    const start = new Date(draft.startTime).getTime();
+    const start = this.getRunningStartTime(draft).getTime();
     if (Number.isNaN(start)) {
       return '00:00:00';
     }
@@ -285,7 +458,9 @@ export class Dashboard implements OnInit {
         },
         error: () => {
           this.isSavingEntry.set(false);
-          this.editingError.set('Could not update the time entry. Check the details and try again.');
+          this.editingError.set(
+            'Could not update the time entry. Check the details and try again.',
+          );
         },
       });
   }
@@ -297,7 +472,12 @@ export class Dashboard implements OnInit {
 
     const seconds =
       entry.durationSeconds ??
-      Math.max(0, Math.round((new Date(entry.endTime).getTime() - new Date(entry.startTime).getTime()) / 1000));
+      Math.max(
+        0,
+        Math.round(
+          (new Date(entry.endTime).getTime() - new Date(entry.startTime).getTime()) / 1000,
+        ),
+      );
     return this.formatDurationSeconds(seconds);
   }
 
@@ -320,6 +500,7 @@ export class Dashboard implements OnInit {
                 projectId: running.projectId ?? '',
                 taskId: running.taskId ?? '',
                 startTime: this.toLocalDateTime(running.startTime),
+                originalStartTime: running.startTime,
               }
             : null,
         );
@@ -363,6 +544,16 @@ export class Dashboard implements OnInit {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
       date.getHours(),
     )}:${pad(date.getMinutes())}`;
+  }
+
+  private getRunningStartTime(draft: RunningTimerEdit): Date {
+    if (
+      draft.originalStartTime &&
+      draft.startTime === this.toLocalDateTime(draft.originalStartTime)
+    ) {
+      return new Date(draft.originalStartTime);
+    }
+    return new Date(draft.startTime);
   }
 
   private loadProjects(): void {

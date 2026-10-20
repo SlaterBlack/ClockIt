@@ -3,6 +3,7 @@ export const PAY_TYPES = [
   { value: 'public-holiday', label: 'Public Holiday', defaultEarningsRate: 'Public Holiday' },
   { value: 'sick-leave', label: 'Sick Leave', defaultEarningsRate: 'Sick Leave' },
   { value: 'annual-leave', label: 'Annual Leave', defaultEarningsRate: 'Annual Leave' },
+  { value: 'unpaid', label: 'Unpaid', defaultEarningsRate: 'Unpaid' },
 ] as const;
 
 export type PayType = (typeof PAY_TYPES)[number]['value'];
