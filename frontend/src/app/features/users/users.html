@@ -1,0 +1,106 @@
+<div class="users-heading">
+  <h1>Users</h1>
+</div>
+
+<div class="card new-user-card">
+  <h2>Add user</h2>
+  <div class="new-user-form">
+    <input
+      type="text"
+      placeholder="Name"
+      aria-label="Name"
+      [ngModel]="newName()"
+      (ngModelChange)="newName.set($event)"
+    />
+    <input
+      type="email"
+      placeholder="Email"
+      aria-label="Email"
+      [ngModel]="newEmail()"
+      (ngModelChange)="newEmail.set($event)"
+    />
+    <input
+      type="password"
+      placeholder="Password"
+      aria-label="Password"
+      [ngModel]="newPassword()"
+      (ngModelChange)="newPassword.set($event)"
+    />
+    <select aria-label="Role" [ngModel]="newRole()" (ngModelChange)="newRole.set($event)">
+      <option value="user">User</option>
+      <option value="admin">Admin</option>
+    </select>
+    <button class="btn btn-primary" type="button" (click)="createUser()" [disabled]="isCreating()">
+      Add user
+    </button>
+  </div>
+  @if (createError(); as error) {
+    <p class="error-text" role="alert">{{ error }}</p>
+  }
+</div>
+
+@if (isLoading()) {
+  <p>Loading users…</p>
+} @else if (listError(); as error) {
+  <p class="error-text" role="alert">{{ error }}</p>
+} @else {
+  <div class="user-list">
+    @for (user of users(); track user.id) {
+      <div class="card user-card">
+        <div class="user-row">
+          <div class="user-info">
+            <span class="user-name">{{ user.name }}</span>
+            <span class="user-email">{{ user.email }}</span>
+          </div>
+
+          @if (editingUserId() === user.id) {
+            <div class="user-edit-form">
+              <select
+                aria-label="Role"
+                [ngModel]="editingRole()"
+                (ngModelChange)="editingRole.set($event)"
+              >
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+              <input
+                type="password"
+                placeholder="New password (optional)"
+                aria-label="New password"
+                [ngModel]="editingPassword()"
+                (ngModelChange)="editingPassword.set($event)"
+              />
+              <button
+                class="btn btn-primary"
+                type="button"
+                (click)="saveEditing(user)"
+                [disabled]="busyUserId() === user.id"
+              >
+                Save
+              </button>
+              <button class="btn btn-secondary" type="button" (click)="cancelEditing()">Cancel</button>
+            </div>
+          } @else {
+            <span class="role-badge" [class.role-badge-admin]="user.role === 'admin'">{{
+              user.role
+            }}</span>
+            <div class="user-actions">
+              <button class="btn btn-secondary" type="button" (click)="startEditing(user)">Edit</button>
+              <button
+                class="btn btn-danger"
+                type="button"
+                (click)="deleteUser(user)"
+                [disabled]="busyUserId() === user.id || user.id === currentUserId"
+              >
+                Delete
+              </button>
+            </div>
+          }
+        </div>
+        @if (rowError()?.id === user.id) {
+          <p class="error-text" role="alert">{{ rowError()?.message }}</p>
+        }
+      </div>
+    }
+  </div>
+}

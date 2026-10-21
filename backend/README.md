@@ -37,6 +37,7 @@ src/
    psql -U postgres -d clockify_dupe -f migrations/20261019-add-task-pay-type.sql
    psql -U postgres -d clockify_dupe -f migrations/20261020-share-workspace.sql
    psql -U postgres -d clockify_dupe -f migrations/20261020-add-project-archived.sql
+   psql -U postgres -d clockify_dupe -f migrations/20261021-add-user-roles.sql
    ```
 4. Install dependencies:
    ```powershell
@@ -53,6 +54,15 @@ src/
    npm start
    ```
 
+## Roles and user management
+
+There is no public sign-up endpoint; accounts are created by admins. Every user has a `role` of either `admin` or `user`. Two things bootstrap the very first admin:
+
+- **Empty database**: `POST /api/users` is allowed without authentication only while the `users` table is completely empty, and always creates an `admin` regardless of the requested role. Once any user exists, this endpoint requires an authenticated admin like the rest of `/users`.
+- **Existing database gaining roles**: if no admin exists yet when the server starts (e.g. right after adding the `role` column to a database that already had users), the oldest account is automatically promoted to admin. The `20261021-add-user-roles.sql` migration does this same promotion directly in SQL for production deployments.
+
+After the first admin exists, admins manage everyone else via `/api/users` (see below): creating accounts, changing names/emails/passwords/roles, and deleting accounts. An admin can't delete their own account, remove their own admin role, or delete/demote the last remaining admin.
+
 ## API overview
 
 All routes are mounted under `/api`. New projects require a three-digit `projectNumber`. The project-number migration leaves existing records unset so their numbers can be added from the project options menu.
@@ -60,9 +70,13 @@ All routes are mounted under `/api`. New projects require a three-digit `project
 | Method | Route                     | Auth | Description                       |
 | ------ | ------------------------- | ---- | ---------------------------------- |
 | GET    | `/health`                 | No   | Health check                       |
-| POST   | `/auth/register`          | No   | Create a user, returns a JWT        |
 | POST   | `/auth/login`             | No   | Log in, returns a JWT               |
 | GET    | `/auth/me`                | Yes  | Current authenticated user          |
+| PATCH  | `/auth/me`                | Yes  | Update the caller's name, email and/or password |
+| GET    | `/users`                  | Admin | List all users                     |
+| POST   | `/users`                  | Admin* | Create a user with an optional `role` (`user` default, or `admin`). *No auth required only while the users table is empty (bootstraps the first admin) |
+| PATCH  | `/users/:id`              | Admin | Update a user's name, email, password and/or role |
+| DELETE | `/users/:id`              | Admin | Delete a user (cannot delete yourself or the last remaining admin) |
 | GET    | `/workspaces`             | Yes  | List workspaces (one shared workspace; oldest first) |
 | POST   | `/workspaces`             | Yes  | Create the shared workspace; returns the existing one if it already exists |
 | GET    | `/workspaces/:id`         | Yes  | Get a workspace                     |
@@ -91,4 +105,4 @@ Archived projects are hidden from the active project list and cannot be used to 
 
 Reports default to the authenticated user's entries. The `userId=all` option includes every registered user's entries; a specific `userId` selects one user's entries. This is global visibility across the app rather than workspace-scoped. The report user list and entry owner association expose only user IDs and names.
 
-This is a scaffold: extend it with validation (e.g. zod/celebrate), migrations, pagination, roles/permissions, and tests as the app grows.
+This is a scaffold: extend it with validation (e.g. zod/celebrate), pagination, and tests as the app grows.

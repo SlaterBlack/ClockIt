@@ -1,0 +1,60 @@
+<div class="profile-heading">
+  <h1>My account</h1>
+</div>
+
+@if (isLoading()) {
+  <p>Loading account details…</p>
+} @else {
+  <form class="card profile-card" (ngSubmit)="save()">
+    <div class="form-field">
+      <label for="profile-name">Name</label>
+      <input
+        id="profile-name"
+        type="text"
+        autocomplete="name"
+        required
+        [ngModel]="name()"
+        (ngModelChange)="name.set($event)"
+        name="name"
+      />
+    </div>
+
+    <div class="form-field">
+      <label for="profile-email">Email</label>
+      <input
+        id="profile-email"
+        type="email"
+        autocomplete="email"
+        required
+        [ngModel]="email()"
+        (ngModelChange)="email.set($event)"
+        name="email"
+      />
+    </div>
+
+    <div class="form-field">
+      <label for="profile-password">New password</label>
+      <input
+        id="profile-password"
+        type="password"
+        autocomplete="new-password"
+        minlength="8"
+        placeholder="Leave blank to keep your current password"
+        [ngModel]="password()"
+        (ngModelChange)="password.set($event)"
+        name="password"
+      />
+    </div>
+
+    @if (errorMessage(); as error) {
+      <p class="error-text" role="alert">{{ error }}</p>
+    }
+    @if (successMessage(); as success) {
+      <p class="success-text" role="status">{{ success }}</p>
+    }
+
+    <button class="btn btn-primary" type="submit" [disabled]="isSaving()">
+      {{ isSaving() ? 'Saving…' : 'Save changes' }}
+    </button>
+  </form>
+}

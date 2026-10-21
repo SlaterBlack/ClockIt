@@ -1,0 +1,134 @@
+.users-heading {
+  margin-bottom: var(--space-md);
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.new-user-card {
+  margin-bottom: var(--space-lg);
+
+  h2 {
+    margin: 0 0 var(--space-sm);
+    font-size: 1rem;
+  }
+}
+
+.new-user-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+
+  input,
+  select {
+    min-height: 42px;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text);
+  }
+
+  input {
+    flex: 1 1 180px;
+    min-width: 0;
+  }
+
+  select {
+    flex: 0 0 auto;
+  }
+}
+
+.user-list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.user-card {
+  padding: var(--space-md);
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.user-name {
+  font-weight: 600;
+}
+
+.user-email {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.role-badge {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-light);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.role-badge-admin {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.user-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-sm);
+}
+
+.user-edit-form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+
+  select,
+  input {
+    min-height: 36px;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+  }
+
+  .btn {
+    min-height: 36px;
+    padding: 0.4rem 0.625rem;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .new-user-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .user-row {
+    flex-wrap: wrap;
+  }
+
+  .user-edit-form {
+    flex-basis: 100%;
+  }
+}

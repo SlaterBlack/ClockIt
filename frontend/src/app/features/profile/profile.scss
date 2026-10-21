@@ -1,0 +1,16 @@
+.profile-heading {
+  margin-bottom: var(--space-md);
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.profile-card {
+  max-width: 560px;
+}
+
+.success-text {
+  color: var(--color-accent);
+  font-size: 0.9rem;
+}

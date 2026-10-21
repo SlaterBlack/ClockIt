@@ -14,7 +14,7 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
 
   try {
     const payload = verifyToken(token);
-    req.user = { id: payload.sub, email: payload.email };
+    req.user = { id: payload.sub, email: payload.email, role: payload.role };
     next();
   } catch {
     next(new ApiError(401, 'Invalid or expired token'));

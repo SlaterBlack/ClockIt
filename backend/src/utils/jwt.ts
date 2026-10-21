@@ -1,9 +1,11 @@
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
+import { UserRole } from '../models/User';
 
 export interface JwtPayload {
   sub: string;
   email: string;
+  role: UserRole;
 }
 
 export function signToken(payload: JwtPayload): string {

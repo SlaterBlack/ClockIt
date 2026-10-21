@@ -16,6 +16,7 @@ export class Auth {
   private readonly currentUserSignal = signal<User | null>(null);
   readonly currentUser = this.currentUserSignal.asReadonly();
   readonly isAuthenticated = computed(() => this.currentUserSignal() !== null);
+  readonly isAdmin = computed(() => this.currentUserSignal()?.role === 'admin');
 
   login(email: string, password: string): Observable<AuthResponse> {
     return this.http
@@ -23,15 +24,15 @@ export class Auth {
       .pipe(tap((response) => this.handleAuthResponse(response)));
   }
 
-  register(name: string, email: string, password: string): Observable<AuthResponse> {
-    return this.http
-      .post<AuthResponse>(`${this.apiUrl}/register`, { name, email, password })
-      .pipe(tap((response) => this.handleAuthResponse(response)));
-  }
-
   fetchCurrentUser(): Observable<{ user: User }> {
     return this.http
       .get<{ user: User }>(`${this.apiUrl}/me`)
+      .pipe(tap(({ user }) => this.currentUserSignal.set(user)));
+  }
+
+  updateProfile(changes: { name?: string; email?: string; password?: string }): Observable<{ user: User }> {
+    return this.http
+      .patch<{ user: User }>(`${this.apiUrl}/me`, changes)
       .pipe(tap(({ user }) => this.currentUserSignal.set(user)));
   }
 

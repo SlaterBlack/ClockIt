@@ -11,9 +11,30 @@
   </nav>
   <div class="navbar-user">
     @if (currentUser(); as user) {
-      <span>{{ user.name }}</span>
+      <div class="account-menu">
+        <button
+          class="account-menu-trigger"
+          type="button"
+          aria-haspopup="menu"
+          [attr.aria-expanded]="isAccountMenuOpen()"
+          (click)="toggleAccountMenu()"
+        >
+          {{ user.name }}
+          <span aria-hidden="true">⌄</span>
+        </button>
+        @if (isAccountMenuOpen()) {
+          <div class="account-menu-panel" role="menu">
+            <a routerLink="/profile" role="menuitem" (click)="closeAccountMenu()">My account</a>
+            @if (isAdmin()) {
+              <a routerLink="/users" role="menuitem" (click)="closeAccountMenu()">Manage users</a>
+            }
+            <button type="button" role="menuitem" (click)="logout()">Log out</button>
+          </div>
+        }
+      </div>
+    } @else {
+      <span>Account</span>
     }
-    <button class="btn btn-secondary" type="button" (click)="logout()">Log out</button>
   </div>
 </header>
 

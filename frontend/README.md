@@ -8,16 +8,17 @@ Angular frontend scaffold for the time recording system. Standalone components, 
 src/
   app/
     core/
-      guards/         # authGuard - protects authenticated routes
+      guards/         # authGuard, adminGuard - protect authenticated/admin-only routes
       interceptors/    # authInterceptor - attaches the JWT bearer token
       models/          # shared TypeScript interfaces (User, Workspace, Project, TimeEntry)
-      services/        # Auth, Workspace, Project, TimeEntry - talk to the backend API
+      services/        # Auth, User, Workspace, Project, TimeEntry - talk to the backend API
     features/
-      auth/login/      # login page
-      auth/register/   # registration page
+      auth/login/      # login page (there is no public sign-up; admins create accounts)
       dashboard/       # time tracker page (start/stop, manual entries, replay from history)
       projects/        # project and task management
       reports/         # summary and detailed time reports with date/project/task/user/billable filters
+      profile/         # signed-in user's account details
+      users/           # admin-only user management (list/create/edit role/delete)
     layout/
       shell/           # authenticated app shell: navbar + <router-outlet>
     app.routes.ts       # route table (public auth routes + guarded shell routes)
@@ -33,6 +34,8 @@ To keep the UI uniform without a component library, build new pages with the cla
 In development the app calls the API at the relative path `/api` (see `src/environments/environment.development.ts`); the dev server forwards it to the backend on `http://localhost:4000` via `proxy.conf.json`. Update `environment.ts` for the production API URL.
 
 The Reports page supports date presets/custom dates, project, task, billable status, and user filters, summary totals, a project breakdown, and a detailed entry table. Its default is the signed-in user's entries; selecting all users includes every registered user's entries in this app.
+
+There is no public registration page. Click your username in the navigation bar to open account actions and edit your own name, email or password. Admins also have a Manage users action where they create accounts, change other users' roles/passwords, and delete accounts (an admin can't delete or demote the last remaining admin).
 
 Tracker time inputs accept 12-hour and 24-hour text formats such as `9am`, `9.15am`, `9:15`, `0915`, and `9.15`. Valid input is normalized when the field loses focus; the date remains separately editable.
 
