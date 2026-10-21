@@ -1,4 +1,4 @@
-# ClockedIn
+# ClockIt
 ## Inspired by Clockify and used to practice Angular, Node and PostgreSQL code.
 
 A time recording system scaffold similar to Clockify, with an Angular frontend and a Node/Express/TypeScript backend.

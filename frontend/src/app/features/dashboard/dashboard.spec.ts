@@ -124,6 +124,40 @@ describe('Dashboard', () => {
     expect(component.isSavingManualEntry()).toBe(false);
   });
 
+  it('requires confirmation before removing a time entry and refreshes the tracker', () => {
+    const entry = {
+      id: 'e1',
+      description: 'Planning',
+      startTime: '2026-10-19T09:00:00.000Z',
+      endTime: '2026-10-19T10:00:00.000Z',
+      durationSeconds: 3600,
+      isBillable: true,
+      userId: 'u1',
+      projectId: 'p1',
+      taskId: 't1',
+      createdAt: '',
+      updatedAt: '',
+    };
+
+    component.requestEntryRemoval(entry);
+
+    expect(component.entryPendingRemovalId()).toBe('e1');
+    httpMock.expectNone((request) => request.method === 'DELETE');
+
+    component.removeEntry(entry);
+
+    const request = httpMock.expectOne(
+      (req) => req.method === 'DELETE' && req.url.endsWith('/time-entries/e1'),
+    );
+    request.flush(null);
+    httpMock
+      .expectOne((req) => req.method === 'GET' && req.url.endsWith('/time-entries'))
+      .flush({ timeEntries: [] });
+
+    expect(component.entryPendingRemovalId()).toBeNull();
+    expect(component.isRemovingEntry()).toBe(false);
+  });
+
   it('requires the manual entry to end after it starts', () => {
     component.openManualEntry();
     component.updateManualEntry({

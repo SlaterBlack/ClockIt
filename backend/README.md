@@ -1,4 +1,4 @@
-# Backend — Clockify Dupe API
+# Backend — ClockIt API
 
 Node.js + Express + TypeScript REST API scaffold for the time recording system, using Sequelize with PostgreSQL and JWT-based authentication.
 

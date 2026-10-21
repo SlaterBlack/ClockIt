@@ -1,4 +1,4 @@
-# Frontend — Clockify Dupe
+# Frontend — ClockIt
 
 Angular frontend scaffold for the time recording system. Standalone components, lazy-loaded routes, signals for state, Inter (bundled locally), and a custom (no UI library) design system so the whole app stays visually consistent.
 
@@ -64,7 +64,7 @@ Once the server is running, open your browser and navigate to `http://localhost:
 The dev server listens on all interfaces, so other devices on the same network can open `http://<your-pc-ip>:4200/` (the `Network:` URL printed by `ng serve`, or find it with `ipconfig`). Only port 4200 is needed; API calls go through the dev server proxy to the backend, which can stay on localhost. If the page doesn't load from another device, allow inbound TCP 4200 in Windows Firewall (run in an admin PowerShell):
 
 ```powershell
-New-NetFirewallRule -DisplayName "Clockify Dupe dev (4200)" -Direction Inbound -Protocol TCP -LocalPort 4200 -Action Allow
+New-NetFirewallRule -DisplayName "ClockIt dev (4200)" -Direction Inbound -Protocol TCP -LocalPort 4200 -Action Allow
 ```
 
 ## Code scaffolding

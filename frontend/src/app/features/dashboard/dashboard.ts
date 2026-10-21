@@ -100,6 +100,8 @@ export class Dashboard implements OnInit {
   readonly editingTasks = signal<TaskDto[]>([]);
   readonly editingError = signal<string | null>(null);
   readonly isSavingEntry = signal(false);
+  readonly entryPendingRemovalId = signal<string | null>(null);
+  readonly isRemovingEntry = signal(false);
   readonly isManualEntryOpen = signal(false);
   readonly manualEntry = signal<ManualEntryDraft | null>(null);
   readonly manualTasks = signal<TaskDto[]>([]);
@@ -391,6 +393,7 @@ export class Dashboard implements OnInit {
       endTime: this.toLocalDateTime(entry.endTime),
       isBillable: entry.isBillable,
     };
+    this.entryPendingRemovalId.set(null);
     this.editingEntry.set(draft);
     this.editingError.set(null);
     this.loadEditingTasks(draft.projectId);
@@ -407,6 +410,49 @@ export class Dashboard implements OnInit {
     this.editingEntry.set(null);
     this.editingTasks.set([]);
     this.editingError.set(null);
+    this.entryPendingRemovalId.set(null);
+  }
+
+  requestEntryRemoval(entry: TimeEntryDto): void {
+    if (this.isRemovingEntry()) {
+      return;
+    }
+    this.entryPendingRemovalId.set(entry.id);
+    this.editingError.set(null);
+  }
+
+  cancelEntryRemoval(): void {
+    if (!this.isRemovingEntry()) {
+      this.entryPendingRemovalId.set(null);
+    }
+  }
+
+  removeEntry(entry: TimeEntryDto): void {
+    if (this.entryPendingRemovalId() !== entry.id || this.isRemovingEntry()) {
+      return;
+    }
+
+    this.isRemovingEntry.set(true);
+    this.editingError.set(null);
+    this.timeEntryService.remove(entry.id).subscribe({
+      next: () => {
+        this.isRemovingEntry.set(false);
+        if (this.editingEntry()?.id === entry.id) {
+          this.cancelEntryEdit();
+        } else {
+          this.entryPendingRemovalId.set(null);
+        }
+        this.refresh();
+      },
+      error: () => {
+        this.isRemovingEntry.set(false);
+        if (this.editingEntry()?.id === entry.id) {
+          this.editingError.set('Could not remove the time entry. Try again.');
+        } else {
+          this.errorMessage.set('Could not remove the time entry. Try again.');
+        }
+      },
+    });
   }
 
   updateEntryDraft(changes: Partial<TimeEntryEdit>): void {

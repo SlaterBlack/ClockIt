@@ -323,7 +323,36 @@
                     <button class="btn btn-secondary" type="button" (click)="cancelEntryEdit()">
                       Cancel
                     </button>
+                    <button
+                      class="btn btn-secondary"
+                      type="button"
+                      [disabled]="isSavingEntry() || isRemovingEntry()"
+                      (click)="requestEntryRemoval(entry)"
+                    >
+                      Remove entry
+                    </button>
                   </div>
+                  @if (entryPendingRemovalId() === entry.id) {
+                    <div class="entry-removal-confirmation" role="group" aria-label="Confirm time entry removal">
+                      <p>Remove this time entry? This cannot be undone.</p>
+                      <button
+                        class="btn btn-danger"
+                        type="button"
+                        [disabled]="isRemovingEntry()"
+                        (click)="removeEntry(entry)"
+                      >
+                        {{ isRemovingEntry() ? 'Removing…' : 'Remove entry' }}
+                      </button>
+                      <button
+                        class="btn btn-secondary"
+                        type="button"
+                        [disabled]="isRemovingEntry()"
+                        (click)="cancelEntryRemoval()"
+                      >
+                        Keep entry
+                      </button>
+                    </div>
+                  }
                 </div>
               }
             </div>
