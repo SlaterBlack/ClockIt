@@ -18,7 +18,7 @@ async function bootstrap(): Promise<void> {
   const app = createApp();
   app.listen(env.port, () => {
     // eslint-disable-next-line no-console
-    console.log(`Backend listening on http://localhost:${env.port}`);
+    console.log(`Backend listening on port ${env.port}`);
   });
 }
 

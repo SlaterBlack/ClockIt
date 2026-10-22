@@ -2,8 +2,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-function required(name: string, fallback?: string): string {
-  const value = process.env[name] ?? fallback;
+function required(name: string): string {
+  const value = process.env[name];
   if (value === undefined) {
     throw new Error(`Missing required environment variable: ${name}`);
   }
@@ -16,16 +16,16 @@ export const env = {
   clientOrigin: process.env.CLIENT_ORIGIN ?? 'http://localhost:4200',
 
   db: {
-    host: required('DB_HOST', 'localhost'),
+    host: required('DB_HOST'),
     port: Number(process.env.DB_PORT ?? 5432),
-    name: required('DB_NAME', 'clockify_dupe'),
-    user: required('DB_USER', 'postgres'),
-    password: required('DB_PASSWORD', 'postgres'),
+    name: required('DB_NAME'),
+    user: required('DB_USER'),
+    password: required('DB_PASSWORD'),
     logging: (process.env.DB_LOGGING ?? 'false') === 'true',
   },
 
   jwt: {
-    secret: required('JWT_SECRET', 'change-me-in-env'),
+    secret: required('JWT_SECRET'),
     expiresIn: process.env.JWT_EXPIRES_IN ?? '1d',
   },
 

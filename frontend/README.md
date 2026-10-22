@@ -64,11 +64,7 @@ Once the server is running, open your browser and navigate to `http://localhost:
 
 ### Access from other devices on the network
 
-The dev server listens on all interfaces, so other devices on the same network can open `http://<your-pc-ip>:4200/` (the `Network:` URL printed by `ng serve`, or find it with `ipconfig`). Only port 4200 is needed; API calls go through the dev server proxy to the backend, which can stay on localhost. If the page doesn't load from another device, allow inbound TCP 4200 in Windows Firewall (run in an admin PowerShell):
-
-```powershell
-New-NetFirewallRule -DisplayName "ClockIt dev (4200)" -Direction Inbound -Protocol TCP -LocalPort 4200 -Action Allow
-```
+The development server listens on all network interfaces. To open it from another device on the same network, use the development machine's network address and port `4200` (the `Network:` URL printed by `ng serve`, or find the address using your operating system's network tools). API calls go through the development-server proxy to the backend. If the page is unreachable, allow inbound TCP traffic on port `4200` in the development machine's firewall. Avoid exposing the development server to untrusted networks.
 
 ## Code scaffolding
 

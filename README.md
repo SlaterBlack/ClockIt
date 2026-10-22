@@ -15,10 +15,10 @@ See [frontend/README.md](./frontend/README.md) and [backend/README.md](./backend
 ## Quick start
 
 1. **Backend**
+   Create `backend/.env` from `backend/.env.example` and configure the database values and `JWT_SECRET`.
    ```powershell
    cd backend
    npm install
-   # review/update backend/.env (DB connection, JWT secret, etc.)
    npm run dev
    ```
    Requires a running PostgreSQL instance matching the `DB_*` values in `backend/.env`.

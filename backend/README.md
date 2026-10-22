@@ -28,17 +28,18 @@ src/
 
 ## Getting started
 
-1. Copy `.env.example` to `.env` (already done for local development) and adjust values, especially `DB_*` and `JWT_SECRET`.
-2. Create the PostgreSQL database named in `DB_NAME` (defaults to `clockify_dupe`).
+1. Copy `.env.example` to `.env` and set the values for your environment, especially `DB_*` and `JWT_SECRET`. The backend requires these values; it does not assume a database username, password, name, host, or JWT secret.
+2. Create the PostgreSQL database named in `DB_NAME`.
 3. For an existing production database, apply the schema migrations before deployment:
    ```powershell
-   psql -U postgres -d clockify_dupe -f migrations/20261019-add-project-tasks.sql
-   psql -U postgres -d clockify_dupe -f migrations/20261019-add-project-numbers.sql
-   psql -U postgres -d clockify_dupe -f migrations/20261019-add-task-pay-type.sql
-   psql -U postgres -d clockify_dupe -f migrations/20261020-share-workspace.sql
-   psql -U postgres -d clockify_dupe -f migrations/20261020-add-project-archived.sql
-   psql -U postgres -d clockify_dupe -f migrations/20261021-add-user-roles.sql
+   psql -U YOUR_DB_USER -d YOUR_DB_NAME -f migrations/20261019-add-project-tasks.sql
+   psql -U YOUR_DB_USER -d YOUR_DB_NAME -f migrations/20261019-add-project-numbers.sql
+   psql -U YOUR_DB_USER -d YOUR_DB_NAME -f migrations/20261019-add-task-pay-type.sql
+   psql -U YOUR_DB_USER -d YOUR_DB_NAME -f migrations/20261020-share-workspace.sql
+   psql -U YOUR_DB_USER -d YOUR_DB_NAME -f migrations/20261020-add-project-archived.sql
+   psql -U YOUR_DB_USER -d YOUR_DB_NAME -f migrations/20261021-add-user-roles.sql
    ```
+   Replace `YOUR_DB_USER` and `YOUR_DB_NAME` with the values configured for the target database.
 4. Install dependencies:
    ```powershell
    npm install
@@ -47,7 +48,7 @@ src/
    ```powershell
    npm run dev
    ```
-   The server syncs/updates the Sequelize models automatically in development. For production, apply the SQL migrations before deploying instead of using `sequelize.sync()`.
+   The development server syncs/updates the Sequelize models automatically. For production, apply the SQL migrations before deploying instead of using `sequelize.sync()`.
 6. Build and run the compiled output:
    ```powershell
    npm run build
