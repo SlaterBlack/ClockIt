@@ -23,7 +23,7 @@ export interface UpdateUserPayload {
 })
 export class User {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = `${environment.apiUrl}/users`;
+  private readonly apiUrl = `${environment.sharedApiUrl}/users`;
 
   list(): Observable<{ users: UserDto[] }> {
     return this.http.get<{ users: UserDto[] }>(this.apiUrl);

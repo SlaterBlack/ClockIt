@@ -1,27 +1,29 @@
 # ClockIt
 ## Inspired by Clockify and used to practice Angular, Node and PostgreSQL code.
 
-A time recording system scaffold similar to Clockify, with an Angular frontend and a Node/Express/TypeScript backend.
+A time recording app with an Angular frontend. Its API and PostgreSQL data are
+being consolidated into the shared StoreIt Node/Express service.
 
 ## Structure
 
 ```
 frontend/   Angular app (standalone components, custom CSS design system, JWT auth wiring)
-backend/    Express + TypeScript API (Sequelize/PostgreSQL, JWT auth, workspaces/projects/time entries)
+backend/    Legacy API source retained until StoreIt migration is verified
 ```
 
 See [frontend/README.md](./frontend/README.md) and [backend/README.md](./backend/README.md) for details on each app.
 
 ## Quick start
 
-1. **Backend**
-   Create `backend/.env` from `backend/.env.example` and configure the database values and `JWT_SECRET`.
+1. **Shared API**
+   Configure and run the StoreIt backend. See [StoreIt setup](../StoreIt/README.md).
    ```powershell
-   cd backend
+   Set-Location ..\StoreIt\backend
    npm install
+   npm run db:migrate
    npm run dev
    ```
-   Requires a running PostgreSQL instance matching the `DB_*` values in `backend/.env`.
+   StoreIt serves `/api/clockit/...` and shared authentication on port 4002.
 
 2. **Frontend**
    ```powershell
@@ -29,7 +31,7 @@ See [frontend/README.md](./frontend/README.md) and [backend/README.md](./backend
    npm install
    npm start
    ```
-   Opens at `http://localhost:4200` and talks to the API at `http://localhost:4000/api` by default.
+   The frontend development proxy sends API calls to StoreIt.
 
 ## Admin access in development
 
@@ -58,6 +60,10 @@ PostgreSQL reports `UPDATE 1` when it found and promoted the account. `UPDATE 0`
 
 ## Configuration
 
-- `backend/.env` — runtime configuration for the API (PostgreSQL connection, JWT secret, CORS origin, port). Copy `backend/.env.example` to create your own; `.env` files are git-ignored.
+- `../StoreIt/backend/.env` — runtime configuration for the shared API and PostgreSQL database.
 - `frontend/src/environments/` — build-time configuration for the Angular app (API base URL per environment).
 - Root [.gitignore](./.gitignore) — ignores `node_modules`, build output, `.env*` files (except `.env.example`), and editor/OS artifacts for both apps.
+
+The legacy ClockIt backend directory is intentionally retained as a rollback
+reference. Do not remove it until the StoreIt data import and frontend
+verification are complete.

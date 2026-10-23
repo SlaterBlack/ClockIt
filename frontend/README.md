@@ -11,7 +11,7 @@ src/
       guards/         # authGuard, adminGuard - protect authenticated/admin-only routes
       interceptors/    # authInterceptor - attaches the JWT bearer token
       models/          # shared TypeScript interfaces (User, Workspace, Project, TimeEntry)
-      services/        # Auth, User, Workspace, Project, TimeEntry - talk to the backend API
+      services/        # Auth, User, Workspace, Project, TimeEntry - talk to StoreIt
     features/
       auth/login/      # login page (there is no public sign-up; admins create accounts)
       dashboard/       # time tracker page (start/stop, manual entries, replay from history)
@@ -23,7 +23,7 @@ src/
       shell/           # authenticated app shell: navbar + <router-outlet>
     app.routes.ts       # route table (public auth routes + guarded shell routes)
     app.config.ts       # app-wide providers (router, HttpClient + interceptor)
-  environments/         # apiUrl per environment (dev uses /api, proxied to http://localhost:4000)
+  environments/         # apiUrl per environment (dev uses /api, proxied to StoreIt)
   styles/               # shared design tokens (_tokens.scss), resets (_base.scss),
                         # and reusable classes (_components.scss: .btn, .card, .form-field, ...)
   styles.scss           # imports the styles/ partials globally
@@ -31,7 +31,7 @@ src/
 
 To keep the UI uniform without a component library, build new pages with the classes defined in `src/styles/_components.scss` (`.page`, `.card`, `.btn`/`.btn-primary`/`.btn-secondary`/`.btn-danger`, `.form-field`, `.navbar`) and the CSS custom properties in `src/styles/_tokens.scss` (colors, spacing, radius). Re-theme the whole app by editing the tokens file.
 
-In development the app calls the API at the relative path `/api` (see `src/environments/environment.development.ts`); the dev server forwards it to the backend on `http://localhost:4000` via `proxy.conf.json`. Update `environment.ts` for the production API URL.
+In development the app calls the API at the relative path `/api` (see `src/environments/environment.development.ts`). The Angular dev server forwards requests through `proxy.conf.js` to the `STOREIT_API_URL` in `frontend/.env`; copy `.env.example` to `.env` to configure the address. Update `environment.ts` for the production API URL.
 
 The Reports page supports date presets/custom dates, project, task, billable status, and user filters, summary totals, a project breakdown, and a detailed entry table. Its default is the signed-in user's entries; selecting all users includes every registered user's entries in this app.
 

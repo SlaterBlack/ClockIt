@@ -77,7 +77,7 @@
               "buildTarget": "frontend:build:development",
               "host": "0.0.0.0",
               "allowedHosts": true,
-              "proxyConfig": "proxy.conf.json"
+              "proxyConfig": "proxy.conf.js"
             }
           },
           "defaultConfiguration": "development"

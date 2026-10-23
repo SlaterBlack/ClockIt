@@ -1,2 +1,0 @@
-ALTER TABLE projects
-  ADD COLUMN IF NOT EXISTS project_number VARCHAR(3);

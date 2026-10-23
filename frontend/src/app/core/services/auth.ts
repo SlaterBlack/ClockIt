@@ -11,7 +11,7 @@ const TOKEN_STORAGE_KEY = 'clockify_dupe_token';
 })
 export class Auth {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = `${environment.apiUrl}/auth`;
+  private readonly apiUrl = `${environment.sharedApiUrl}/auth`;
 
   private readonly currentUserSignal = signal<User | null>(null);
   readonly currentUser = this.currentUserSignal.asReadonly();
