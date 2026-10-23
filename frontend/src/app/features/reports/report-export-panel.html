@@ -1,10 +1,25 @@
-<section class="card export-panel" aria-label="Export report">
+<section class="card export-panel" aria-label="Report import and export">
   <div class="export-header">
     <div>
       <h2>Export</h2>
-      <p>Download the entries shown in this report.</p>
+      <p>Export or restore entries for your account.</p>
     </div>
     <div class="export-actions">
+      <input
+        #csvFileInput
+        type="file"
+        accept=".csv,text/csv"
+        hidden
+        (change)="onCsvSelected($event)"
+      />
+      <button
+        class="btn btn-secondary"
+        type="button"
+        [disabled]="isImporting()"
+        (click)="csvFileInput.click()"
+      >
+        Import CSV
+      </button>
       <button
         class="btn btn-secondary"
         type="button"
@@ -23,6 +38,44 @@
       </button>
     </div>
   </div>
+
+  @if (pendingImport().length > 0) {
+    <div class="import-confirmation" aria-label="Confirm CSV import">
+      <p>
+        <strong>{{ importFileName() }}</strong> contains {{ pendingImport().length }}
+        {{ pendingImport().length === 1 ? 'entry' : 'entries' }} ready to import.
+      </p>
+      <p class="xero-note">
+        Entries will be added to your account. Missing projects and tasks will be created with
+        default settings; rows already imported will be skipped.
+      </p>
+      <div class="export-actions">
+        <button
+          class="btn btn-primary"
+          type="button"
+          [disabled]="isImporting()"
+          (click)="importCsv()"
+        >
+          {{ isImporting() ? 'Importing…' : 'Import entries' }}
+        </button>
+        <button
+          class="btn btn-secondary"
+          type="button"
+          [disabled]="isImporting()"
+          (click)="cancelImport()"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (importErrorMessage(); as importError) {
+    <p class="error-text" role="alert">{{ importError }}</p>
+  }
+  @if (importSuccessMessage(); as importSuccess) {
+    <p class="import-success" role="status">{{ importSuccess }}</p>
+  }
 
   @if (isXeroOpen()) {
     <form class="xero-form" aria-label="Xero payroll timesheet export" (ngSubmit)="exportXero()">

@@ -29,6 +29,27 @@
   gap: var(--space-xs);
 }
 
+.import-confirmation {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+
+  p {
+    margin: 0;
+  }
+}
+
+.import-success {
+  margin: var(--space-sm) 0 0;
+  color: var(--color-primary);
+  font-size: 0.9rem;
+}
+
 .xero-form {
   display: grid;
   justify-items: start;

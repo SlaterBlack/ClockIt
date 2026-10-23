@@ -49,9 +49,23 @@ describe('report export helpers', () => {
 
     expect(csv.startsWith('\uFEFF')).toBe(true);
     expect(header).toContain('User');
-    expect(row).toBe(
-      '2026-10-19,09:00,10:30,Alex Doe,101,Website,Design,Wireframes,Yes,01:30:00,1.50',
-    );
+    expect(header).toContain('Start timestamp (ISO)');
+    expect(header).toContain('End timestamp (ISO)');
+    expect(row.split(',')).toEqual([
+      '2026-10-19',
+      '09:00',
+      '10:30',
+      makeEntry().startTime,
+      makeEntry().endTime!,
+      'Alex Doe',
+      '101',
+      'Website',
+      'Design',
+      'Wireframes',
+      'Yes',
+      '01:30:00',
+      '1.50',
+    ]);
   });
 
   it('escapes quotes, commas and newlines and neutralises formulas', () => {

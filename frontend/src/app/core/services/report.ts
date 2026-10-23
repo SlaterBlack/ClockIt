@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import type { TimeEntryImport } from '../models/time-entry-import.model';
 import type { ReportUser } from '../models/report.model';
 import type { TimeEntry } from '../models/time-entry.model';
 
@@ -19,5 +20,24 @@ export class Report {
   listTimeEntries(userId: string): Observable<{ timeEntries: TimeEntry[] }> {
     const params = new HttpParams().set('userId', userId);
     return this.http.get<{ timeEntries: TimeEntry[] }>(`${this.apiUrl}/time-entries`, { params });
+  }
+
+  importTimeEntries(
+    entries: TimeEntryImport[],
+  ): Observable<{
+    importedCount: number;
+    skippedCount: number;
+    createdProjectCount: number;
+    createdTaskCount: number;
+  }> {
+    return this.http.post<{
+      importedCount: number;
+      skippedCount: number;
+      createdProjectCount: number;
+      createdTaskCount: number;
+    }>(
+      `${environment.apiUrl}/time-entries/import`,
+      { entries },
+    );
   }
 }

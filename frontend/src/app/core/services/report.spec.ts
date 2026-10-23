@@ -45,4 +45,27 @@ describe('Report', () => {
     );
     request.flush({ timeEntries: [] });
   });
+
+  it('uploads parsed time entries to the authenticated import endpoint', () => {
+    const entries = [
+      {
+        startTime: '2026-10-19T09:00:00.000Z',
+        endTime: '2026-10-19T10:00:00.000Z',
+        projectNumber: '101',
+        projectName: 'Website',
+        taskName: 'Design',
+        description: 'Wireframes',
+        isBillable: true,
+      },
+    ];
+
+    service.importTimeEntries(entries).subscribe((result) => {
+      expect(result).toEqual({ importedCount: 1, skippedCount: 0 });
+    });
+
+    const request = httpMock.expectOne((req) => req.url.endsWith('/time-entries/import'));
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ entries });
+    request.flush({ importedCount: 1, skippedCount: 0 });
+  });
 });

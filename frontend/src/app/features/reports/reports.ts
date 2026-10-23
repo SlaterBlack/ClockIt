@@ -187,6 +187,18 @@ export class Reports implements OnInit {
     this.datePreset.set('custom');
   }
 
+  onImportCompleted(): void {
+    const userId = this.currentUserId();
+    this.selectedUserId.set(userId);
+    this.datePreset.set('custom');
+    this.startDate.set('');
+    this.endDate.set('');
+    this.projectFilter.set('');
+    this.taskFilter.set('');
+    this.billableFilter.set('all');
+    this.loadTimeEntries(userId);
+  }
+
   formatDuration(totalSeconds: number): string {
     return formatClockDuration(totalSeconds);
   }
