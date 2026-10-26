@@ -325,7 +325,7 @@ describe('Dashboard', () => {
       });
   });
 
-  it('omits empty descriptions and provides one date with separate times and duration', () => {
+  it('omits empty descriptions and keeps the custom date and typed-time controls', () => {
     const project = {
       id: 'p1',
       name: 'Sydney Opera House',
@@ -364,13 +364,20 @@ describe('Dashboard', () => {
 
     expect(fixture.nativeElement.querySelector('.entry-description')).toBeNull();
     const dateTimeFields = fixture.nativeElement.querySelector('.entry-date-time-fields');
-    expect(dateTimeFields.querySelectorAll('input[type="date"]')).toHaveLength(1);
-    expect(dateTimeFields.querySelectorAll('input[type="time"]')).toHaveLength(2);
+    expect(dateTimeFields.querySelectorAll('app-date-time-picker')).toHaveLength(3);
+    expect(dateTimeFields.querySelectorAll('.date-only-picker')).toHaveLength(1);
+    expect(dateTimeFields.querySelectorAll('.time-only-picker')).toHaveLength(2);
+    expect(dateTimeFields.querySelectorAll('.stacked-label-picker')).toHaveLength(3);
+    expect(dateTimeFields.querySelectorAll('input[type="date"], input[type="time"]')).toHaveLength(
+      0,
+    );
+    expect(dateTimeFields.querySelectorAll('.manual-time-input[type="text"]')).toHaveLength(2);
+    expect(dateTimeFields.querySelector('.clear-manual-time')).not.toBeNull();
     expect(dateTimeFields.querySelector('.entry-edit-duration strong').textContent).toBe('1h 0m');
 
-    const endTimeInput = dateTimeFields.querySelector(
-      'input[aria-label="Time entry end time"]',
-    ) as HTMLInputElement;
+    const endTimeInput = dateTimeFields
+      .querySelectorAll('app-date-time-picker')[2]
+      .querySelector('.manual-time-input') as HTMLInputElement;
     endTimeInput.value = '10:30';
     endTimeInput.dispatchEvent(new Event('input'));
     fixture.detectChanges();

@@ -98,6 +98,10 @@ export class Dashboard implements OnInit {
   readonly errorMessage = signal<string | null>(null);
   readonly isSubmitting = signal(false);
   readonly editingEntry = signal<TimeEntryEdit | null>(null);
+  readonly editingDateTimeValue = computed(() => {
+    const draft = this.editingEntry();
+    return draft ? `${draft.date}T${draft.startTime || '00:00'}` : '';
+  });
   readonly editingDuration = computed(() => {
     const draft = this.editingEntry();
     if (!draft?.date || !draft.startTime) {
@@ -479,6 +483,24 @@ export class Dashboard implements OnInit {
 
   updateEntryDraft(changes: Partial<TimeEntryEdit>): void {
     this.editingEntry.update((draft) => (draft ? { ...draft, ...changes } : null));
+  }
+
+  entryTimePickerValue(time: string | undefined): string {
+    const draft = this.editingEntry();
+    return draft && time ? `${draft.date}T${time}` : '';
+  }
+
+  updateEntryDate(value: string): void {
+    this.updateEntryDraft({ date: value.slice(0, 10) });
+  }
+
+  updateEntryTimeDraft(field: 'startTime' | 'endTime', value: string): void {
+    const time = value.slice(11, 16);
+    if (field === 'startTime') {
+      this.updateEntryDraft({ startTime: time });
+    } else {
+      this.updateEntryDraft({ endTime: time });
+    }
   }
 
   onEditProjectChange(projectId: string): void {

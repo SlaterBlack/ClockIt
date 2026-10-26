@@ -323,27 +323,22 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: var(--space-sm);
     min-width: 0;
-
-    label {
-      display: grid;
-      align-content: start;
-      gap: var(--space-xs);
-      color: var(--color-text-muted);
-      font-size: 0.82rem;
-      font-weight: 600;
-    }
   }
 
   .entry-edit-duration {
     display: grid;
     align-content: start;
-    gap: var(--space-xs);
+    gap: 2px;
     color: var(--color-text-muted);
-    font-size: 0.82rem;
+    font-size: 0.8rem;
 
     strong {
+      display: flex;
+      align-items: center;
+      box-sizing: border-box;
+      height: 40px;
       min-height: 40px;
-      padding: 0.6rem 0.625rem;
+      padding: 0.4rem 0.625rem;
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
       color: var(--color-primary);

@@ -1,4 +1,10 @@
-<div class="date-time-picker" [class.align-right]="alignRight" [class.time-only-picker]="timeOnly">
+<div
+  class="date-time-picker"
+  [class.align-right]="alignRight"
+  [class.time-only-picker]="timeOnly"
+  [class.date-only-picker]="dateOnly"
+  [class.stacked-label-picker]="stackedLabel"
+>
   <span class="date-time-label">{{ label }}</span>
   <div class="date-time-controls">
     @if (!timeOnly) {
@@ -13,7 +19,7 @@
         {{ displayDate() }}
       </button>
     }
-    @if (timeOnly || manualTime) {
+    @if (!dateOnly && (timeOnly || manualTime)) {
       <input
         class="manual-time-input"
         type="text"
@@ -38,7 +44,7 @@
           Clear
         </button>
       }
-    } @else {
+    } @else if (!dateOnly) {
       <button
         class="date-time-trigger time-trigger"
         type="button"

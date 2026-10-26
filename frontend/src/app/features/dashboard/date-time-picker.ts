@@ -29,7 +29,10 @@ export class DateTimePicker implements OnChanges {
   @Input() clearable = false;
   @Input() alignRight = false;
   @Input() timeOnly = false;
+  @Input() dateOnly = false;
+  @Input() stackedLabel = false;
   @Input() manualTime = false;
+  @Input() emitManualTimeOnInput = false;
   @Output() readonly valueChange = new EventEmitter<string>();
 
   readonly openPickerType = signal<OpenPicker>(null);
@@ -130,13 +133,18 @@ export class DateTimePicker implements OnChanges {
     if (parsed) {
       this.selectedHour.set(this.pad(parsed.hour));
       this.selectedMinute.set(this.pad(parsed.minute));
+      if (this.emitManualTimeOnInput) {
+        this.emitDateTime(this.parseValue(this.value) ?? new Date(), false);
+      }
     }
   }
 
   onManualTimeBlur(): void {
     const value = this.manualTimeValue();
     const parsed = this.parseManualTime(value);
-    if (!parsed) {
+    if (!value.trim() && this.clearable) {
+      this.valueChange.emit('');
+    } else if (!parsed) {
       this.syncManualTimeFromValue();
     } else {
       this.selectedHour.set(this.pad(parsed.hour));
@@ -240,7 +248,9 @@ export class DateTimePicker implements OnChanges {
     this.displayedMonth.set(this.firstOfMonth(selected));
     this.selectedHour.set(this.pad(selected.getHours()));
     this.selectedMinute.set(this.pad(selected.getMinutes()));
-    this.syncManualTimeFromValue();
+    if (!this.manualTimeEditing()) {
+      this.syncManualTimeFromValue();
+    }
   }
 
   private syncManualTimeFromValue(): void {

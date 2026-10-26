@@ -29,6 +29,38 @@
   }
 }
 
+.date-time-picker.stacked-label-picker {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+
+  .date-time-label {
+    font-size: 0.8rem;
+  }
+
+  .date-time-controls {
+    width: 100%;
+    flex: initial;
+  }
+}
+
+.date-time-picker.time-only-picker.stacked-label-picker {
+  align-items: initial;
+
+  .manual-time-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    flex: 1 1 auto;
+  }
+
+  .clear-manual-time {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 0.25rem 0.45rem;
+  }
+}
+
 .date-time-label {
   color: var(--color-text-muted);
   font-size: 0.8rem;
