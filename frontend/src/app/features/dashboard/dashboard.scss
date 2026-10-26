@@ -48,12 +48,38 @@
   }
 }
 
-.manual-entry-date-time-fields {
+.manual-entry-description {
+  grid-column: 1 / -1;
+}
+
+.entry-date-time-fields {
   display: grid;
   grid-column: 1 / -1;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-sm);
   min-width: 0;
+}
+
+.entry-duration-preview {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+
+  strong {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    height: 40px;
+    min-height: 40px;
+    padding: 0.4rem 0.625rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-primary);
+    font-size: 0.88rem;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 .timer-input,
@@ -317,36 +343,6 @@
     grid-column: 1 / -1;
   }
 
-  .entry-date-time-fields {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--space-sm);
-    min-width: 0;
-  }
-
-  .entry-edit-duration {
-    display: grid;
-    align-content: start;
-    gap: 2px;
-    color: var(--color-text-muted);
-    font-size: 0.8rem;
-
-    strong {
-      display: flex;
-      align-items: center;
-      box-sizing: border-box;
-      height: 40px;
-      min-height: 40px;
-      padding: 0.4rem 0.625rem;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      color: var(--color-primary);
-      font-size: 0.88rem;
-      font-variant-numeric: tabular-nums;
-    }
-  }
-
   .entry-billable {
     display: flex;
     align-items: center;
@@ -376,9 +372,12 @@
 }
 
 @media (max-width: 760px) {
-  .manual-entry-fields,
-  .manual-entry-date-time-fields {
+  .manual-entry-fields {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .entry-date-time-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .timer-card {
@@ -411,10 +410,6 @@
 
   .entry-edit-fields {
     grid-template-columns: minmax(0, 1fr);
-
-    .entry-date-time-fields {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
   }
 
   .entry-day {

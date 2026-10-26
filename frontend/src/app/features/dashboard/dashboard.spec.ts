@@ -101,8 +101,9 @@ describe('Dashboard', () => {
       projectId: 'p1',
       taskId: 't1',
       description: 'Annual leave',
-      startTime: '2026-10-19T09:00',
-      endTime: '2026-10-19T17:00',
+      date: '2026-10-19',
+      startTime: '09:00',
+      endTime: '17:00',
       isBillable: false,
     });
     component.saveManualEntry();
@@ -122,6 +123,38 @@ describe('Dashboard', () => {
 
     expect(component.isManualEntryOpen()).toBe(false);
     expect(component.isSavingManualEntry()).toBe(false);
+  });
+
+  it('uses the edit form date and typed-time controls for manual entries', () => {
+    component.openManualEntry();
+    component.updateManualEntry({
+      date: '2026-10-19',
+      startTime: '09:00',
+      endTime: '10:00',
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.manual-entry-description')).not.toBeNull();
+    const dateTimeFields = fixture.nativeElement.querySelector(
+      '.manual-entry-form .entry-date-time-fields',
+    );
+    expect(dateTimeFields.querySelectorAll('app-date-time-picker')).toHaveLength(3);
+    expect(dateTimeFields.querySelectorAll('.date-only-picker')).toHaveLength(1);
+    expect(dateTimeFields.querySelectorAll('.time-only-picker')).toHaveLength(2);
+    expect(dateTimeFields.querySelectorAll('.stacked-label-picker')).toHaveLength(3);
+    expect(dateTimeFields.querySelectorAll('.manual-time-input[type="text"]')).toHaveLength(2);
+    expect(dateTimeFields.querySelector('.clear-manual-time')).not.toBeNull();
+    expect(dateTimeFields.querySelector('.entry-duration-preview strong').textContent).toBe('1h 0m');
+
+    const endTimeInput = dateTimeFields
+      .querySelectorAll('app-date-time-picker')[2]
+      .querySelector('.manual-time-input') as HTMLInputElement;
+    endTimeInput.value = '10:30';
+    endTimeInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(component.manualEntryDuration()).toBe('1h 30m');
+    httpMock.expectNone((request) => request.method === 'POST');
   });
 
   it('requires confirmation before removing a time entry and refreshes the tracker', () => {
@@ -163,13 +196,16 @@ describe('Dashboard', () => {
     component.updateManualEntry({
       projectId: 'p1',
       taskId: 't1',
-      startTime: '2026-10-19T10:00',
-      endTime: '2026-10-19T09:00',
+      date: '2026-10-19',
+      startTime: '10:00',
+      endTime: '09:00',
     });
 
     component.saveManualEntry();
 
-    expect(component.manualEntryError()).toContain('End time must be after start time');
+    expect(component.manualEntryError()).toContain(
+      'End time must be after start time on the same date',
+    );
     httpMock.expectNone(
       (request) => request.method === 'POST' && request.url.endsWith('/time-entries'),
     );
@@ -373,7 +409,9 @@ describe('Dashboard', () => {
     );
     expect(dateTimeFields.querySelectorAll('.manual-time-input[type="text"]')).toHaveLength(2);
     expect(dateTimeFields.querySelector('.clear-manual-time')).not.toBeNull();
-    expect(dateTimeFields.querySelector('.entry-edit-duration strong').textContent).toBe('1h 0m');
+    expect(dateTimeFields.querySelector('.entry-duration-preview strong').textContent).toBe(
+      '1h 0m',
+    );
 
     const endTimeInput = dateTimeFields
       .querySelectorAll('app-date-time-picker')[2]

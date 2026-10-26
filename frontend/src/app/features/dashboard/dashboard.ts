@@ -34,6 +34,7 @@ interface ManualEntryDraft {
   projectId: string;
   taskId: string;
   description: string;
+  date: string;
   startTime: string;
   endTime: string;
   isBillable: boolean;
@@ -104,23 +105,7 @@ export class Dashboard implements OnInit {
   });
   readonly editingDuration = computed(() => {
     const draft = this.editingEntry();
-    if (!draft?.date || !draft.startTime) {
-      return '—';
-    }
-
-    const start = new Date(`${draft.date}T${draft.startTime}`);
-    const end = draft.endTime
-      ? new Date(`${draft.date}T${draft.endTime}`)
-      : new Date(this.clockNow());
-    if (
-      Number.isNaN(start.getTime()) ||
-      Number.isNaN(end.getTime()) ||
-      end <= start
-    ) {
-      return '—';
-    }
-
-    return this.formatDurationSeconds(Math.round((end.getTime() - start.getTime()) / 1000));
+    return draft ? this.durationPreview(draft.date, draft.startTime, draft.endTime, true) : '—';
   });
   readonly editingTasks = signal<TaskDto[]>([]);
   readonly editingError = signal<string | null>(null);
@@ -129,9 +114,47 @@ export class Dashboard implements OnInit {
   readonly isRemovingEntry = signal(false);
   readonly isManualEntryOpen = signal(false);
   readonly manualEntry = signal<ManualEntryDraft | null>(null);
+  readonly manualEntryDateTimeValue = computed(() => {
+    const draft = this.manualEntry();
+    return draft ? `${draft.date}T${draft.startTime || '00:00'}` : '';
+  });
+  readonly manualEntryDuration = computed(() => {
+    const draft = this.manualEntry();
+    return draft
+      ? this.durationPreview(draft.date, draft.startTime, draft.endTime, false)
+      : '—';
+  });
   readonly manualTasks = signal<TaskDto[]>([]);
   readonly manualEntryError = signal<string | null>(null);
   readonly isSavingManualEntry = signal(false);
+
+  private durationPreview(
+    date: string,
+    startTime: string,
+    endTime: string,
+    running: boolean,
+  ): string {
+    if (!date || !startTime) {
+      return '—';
+    }
+
+    const start = new Date(`${date}T${startTime}`);
+    const end = endTime
+      ? new Date(`${date}T${endTime}`)
+      : running
+        ? new Date(this.clockNow())
+        : null;
+    if (
+      Number.isNaN(start.getTime()) ||
+      !end ||
+      Number.isNaN(end.getTime()) ||
+      end <= start
+    ) {
+      return '—';
+    }
+
+    return this.formatDurationSeconds(Math.round((end.getTime() - start.getTime()) / 1000));
+  }
 
   ngOnInit(): void {
     this.refresh();
@@ -248,12 +271,15 @@ export class Dashboard implements OnInit {
     const end = new Date();
     end.setSeconds(0, 0);
     const start = new Date(end.getTime() - 60 * 60 * 1000);
+    const date = this.toLocalDateTime(end.toISOString()).slice(0, 10);
+    const startDateTime = this.toLocalDateTime(start.toISOString());
     this.manualEntry.set({
       projectId: '',
       taskId: '',
       description: '',
-      startTime: this.toLocalDateTime(start.toISOString()),
-      endTime: this.toLocalDateTime(end.toISOString()),
+      date,
+      startTime: startDateTime.slice(0, 10) === date ? startDateTime.slice(11) : '00:00',
+      endTime: this.toLocalDateTime(end.toISOString()).slice(11),
       isBillable: true,
     });
     this.manualTasks.set([]);
@@ -270,6 +296,24 @@ export class Dashboard implements OnInit {
 
   updateManualEntry(changes: Partial<ManualEntryDraft>): void {
     this.manualEntry.update((draft) => (draft ? { ...draft, ...changes } : null));
+  }
+
+  manualEntryTimePickerValue(time: string | undefined): string {
+    const draft = this.manualEntry();
+    return draft && time ? `${draft.date}T${time}` : '';
+  }
+
+  updateManualEntryDate(value: string): void {
+    this.updateManualEntry({ date: value.slice(0, 10) });
+  }
+
+  updateManualEntryTimeDraft(field: 'startTime' | 'endTime', value: string): void {
+    const time = value.slice(11, 16);
+    if (field === 'startTime') {
+      this.updateManualEntry({ startTime: time });
+    } else {
+      this.updateManualEntry({ endTime: time });
+    }
   }
 
   onManualProjectChange(projectId: string): void {
@@ -290,18 +334,18 @@ export class Dashboard implements OnInit {
       this.manualEntryError.set('Select a project and task.');
       return;
     }
-    if (!draft.startTime || !draft.endTime) {
-      this.manualEntryError.set('Enter a start and end date and time.');
+    if (!draft.date || !draft.startTime || !draft.endTime) {
+      this.manualEntryError.set('Enter a date, start time, and end time.');
       return;
     }
-    const start = new Date(draft.startTime);
-    const end = new Date(draft.endTime);
+    const start = new Date(`${draft.date}T${draft.startTime}`);
+    const end = new Date(`${draft.date}T${draft.endTime}`);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      this.manualEntryError.set('Enter valid start and end date and times.');
+      this.manualEntryError.set('Enter a valid date, start time, and end time.');
       return;
     }
     if (end <= start) {
-      this.manualEntryError.set('End time must be after start time.');
+      this.manualEntryError.set('End time must be after start time on the same date.');
       return;
     }
     if (end > new Date()) {
