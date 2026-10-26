@@ -6,12 +6,14 @@ import { PAY_TYPES } from '../../core/models/pay-type.model';
 import type { TimeEntry } from '../../core/models/time-entry.model';
 import { Report } from '../../core/services/report';
 import {
-  buildReportCsv,
   buildXeroTimesheetCsv,
   completedEntries,
+  downloadBlobFile,
   downloadTextFile,
+  entriesInDateRange,
 } from './report-export';
 import { MAX_IMPORT_FILE_BYTES, parseTimeEntryCsv } from './report-import';
+import { buildTimeReportWorkbook } from './report-workbook';
 
 @Component({
   selector: 'app-report-export-panel',
@@ -29,6 +31,7 @@ export class ReportExportPanel {
   readonly importCompleted = output<void>();
   readonly isXeroOpen = signal(false);
   readonly isImporting = signal(false);
+  readonly isExportingReport = signal(false);
   readonly pendingImport = signal<ReturnType<typeof parseTimeEntryCsv>>([]);
   readonly importFileName = signal('');
   readonly importErrorMessage = signal<string | null>(null);
@@ -43,16 +46,41 @@ export class ReportExportPanel {
   readonly errorMessage = signal<string | null>(null);
 
   readonly completedCount = computed(() => completedEntries(this.entries()).length);
-  readonly employeeCount = computed(
-    () => new Set(completedEntries(this.entries()).map((entry) => entry.userId)).size,
-  );
 
-  exportCsv(): void {
+  exportReport(): void {
+    if (this.isExportingReport()) {
+      return;
+    }
+    this.isExportingReport.set(true);
     this.errorMessage.set(null);
-    downloadTextFile(
-      `time-report${this.fileSuffix()}.csv`,
-      buildReportCsv(this.entries(), Date.now()),
-    );
+    const now = Date.now();
+    const startDate = this.startDate();
+    const endDate = this.endDate();
+    const suffix = startDate && endDate ? `_${startDate}_to_${endDate}` : '';
+
+    this.reportService.listTimeEntries('all').subscribe({
+      next: ({ timeEntries }) => {
+        this.isExportingReport.set(false);
+        const periodEntries = entriesInDateRange(timeEntries, startDate, endDate);
+        if (!periodEntries.length) {
+          this.errorMessage.set('There are no entries for any users in this date range.');
+          return;
+        }
+
+        try {
+          downloadBlobFile(
+            `time-report${suffix}.xlsx`,
+            buildTimeReportWorkbook(periodEntries, now, startDate, endDate),
+          );
+        } catch {
+          this.errorMessage.set('Could not create the report workbook. Try again.');
+        }
+      },
+      error: () => {
+        this.isExportingReport.set(false);
+        this.errorMessage.set("Could not load all users' entries for the report workbook.");
+      },
+    });
   }
 
   async onCsvSelected(event: Event): Promise<void> {

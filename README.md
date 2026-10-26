@@ -8,7 +8,7 @@ being consolidated into the shared StoreIt Node/Express service.
 
 ```
 frontend/   Angular app (standalone components, custom CSS design system, JWT auth wiring)
-backend/    Legacy API source retained until StoreIt migration is verified
+backend/    Use StoreIt (Express + TypeScript API, Sequelize/PostgreSQL models, and migration tools)
 ```
 
 See [frontend/README.md](./frontend/README.md) and [backend/README.md](./backend/README.md) for details on each app.

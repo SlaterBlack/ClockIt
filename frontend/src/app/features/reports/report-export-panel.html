@@ -23,10 +23,10 @@
       <button
         class="btn btn-secondary"
         type="button"
-        [disabled]="entries().length === 0"
-        (click)="exportCsv()"
+        [disabled]="isExportingReport()"
+        (click)="exportReport()"
       >
-        Export CSV
+        {{ isExportingReport() ? 'Preparing workbook…' : 'Export workbook' }}
       </button>
       <button
         class="btn btn-secondary"
@@ -38,6 +38,10 @@
       </button>
     </div>
   </div>
+
+  @if (errorMessage(); as error) {
+    <p class="error-text" role="alert">{{ error }}</p>
+  }
 
   @if (pendingImport().length > 0) {
     <div class="import-confirmation" aria-label="Confirm CSV import">
@@ -80,9 +84,8 @@
   @if (isXeroOpen()) {
     <form class="xero-form" aria-label="Xero payroll timesheet export" (ngSubmit)="exportXero()">
       <p class="xero-note">
-        Creates a payroll timesheet file with one row per employee, day and pay type (set on each
-        task), totalling completed entries ({{ completedCount() }} entries,
-        {{ employeeCount() }} employees in this report).
+        Creates a Xero Payroll CSV with one row per employee, day and pay type, using the current
+        report filters. Running timers are excluded.
       </p>
       <div class="xero-rates">
         @for (type of payTypes; track type.value) {
@@ -96,9 +99,6 @@
           </label>
         }
       </div>
-      @if (errorMessage(); as error) {
-        <p class="error-text" role="alert">{{ error }}</p>
-      }
       <button class="btn btn-primary" type="submit">Download timesheet CSV</button>
     </form>
   }

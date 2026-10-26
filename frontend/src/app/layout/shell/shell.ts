@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, OnInit, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Auth } from '../../core/services/auth';
 
@@ -8,7 +8,7 @@ import { Auth } from '../../core/services/auth';
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
 })
-export class Shell implements OnInit {
+export class Shell {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
   private readonly elementRef = inject(ElementRef<HTMLElement>);
@@ -16,14 +16,6 @@ export class Shell implements OnInit {
   readonly currentUser = this.auth.currentUser;
   readonly isAdmin = this.auth.isAdmin;
   readonly isAccountMenuOpen = signal(false);
-
-  ngOnInit(): void {
-    // currentUser isn't persisted across reloads; rehydrate it from the token
-    // so the nav bar (name, admin-only links) renders correctly.
-    if (!this.currentUser() && this.auth.getToken()) {
-      this.auth.fetchCurrentUser().subscribe();
-    }
-  }
 
   logout(): void {
     this.closeAccountMenu();

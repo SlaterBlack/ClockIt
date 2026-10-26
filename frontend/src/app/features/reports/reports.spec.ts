@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
+import { localDateKey } from './report-export';
 import { Reports } from './reports';
 
 describe('Reports', () => {
@@ -59,6 +60,40 @@ describe('Reports', () => {
     expect(fixture.nativeElement.querySelector('tbody').textContent).toContain('Current User');
   });
 
+  it('shows last week next to this week and selects the previous Monday-to-Sunday range', () => {
+    httpMock
+      .expectOne((request) => request.url.endsWith('/reports/users'))
+      .flush({ users: [{ id: 'u1', name: 'Current User' }], currentUserId: 'u1' });
+    httpMock
+      .expectOne((request) => request.url.endsWith('/reports/time-entries'))
+      .flush({ timeEntries: [] });
+
+    const buttons = [
+      ...fixture.nativeElement.querySelectorAll('.date-presets button'),
+    ] as HTMLButtonElement[];
+    expect(buttons.map((button) => button.textContent.trim())).toEqual([
+      'Today',
+      'This week',
+      'Last week',
+      'Last month',
+      'Year to date',
+    ]);
+
+    const today = new Date();
+    const daysSinceMonday = (today.getDay() + 6) % 7;
+    const expectedStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    expectedStart.setDate(expectedStart.getDate() - daysSinceMonday - 7);
+    const expectedEnd = new Date(expectedStart);
+    expectedEnd.setDate(expectedEnd.getDate() + 6);
+
+    buttons[2].click();
+    fixture.detectChanges();
+
+    expect(component.datePreset()).toBe('last-week');
+    expect(component.startDate()).toBe(localDateKey(expectedStart));
+    expect(component.endDate()).toBe(localDateKey(expectedEnd));
+  });
+
   it('filters detailed entries by date, project, task, and billable status', () => {
     httpMock
       .expectOne((request) => request.url.endsWith('/reports/users'))
@@ -107,6 +142,8 @@ describe('Reports', () => {
       .expectOne((request) => request.url.endsWith('/reports/time-entries'))
       .flush({ timeEntries: [] });
 
+    component.startDate.set('2026-10-19');
+    component.endDate.set('2026-10-20');
     component.onUserFilterChange('all');
     const allUsersRequest = httpMock.expectOne(
       (request) =>

@@ -9,7 +9,7 @@ import type { TimeEntry as TimeEntryDto } from '../../core/models/time-entry.mod
 import { ReportExportPanel } from './report-export-panel';
 import { entryDurationSeconds, formatClockDuration, localDateKey } from './report-export';
 
-type DatePreset = 'today' | 'this-week' | 'last-month' | 'year-to-date' | 'custom';
+type DatePreset = 'today' | 'this-week' | 'last-week' | 'last-month' | 'year-to-date' | 'custom';
 type BillableFilter = 'all' | 'billable' | 'non-billable';
 
 interface ProjectSummary {
@@ -160,6 +160,12 @@ export class Reports implements OnInit {
       case 'this-week': {
         const daysSinceMonday = (now.getDay() + 6) % 7;
         start = this.addDays(this.startOfDay(now), -daysSinceMonday);
+        end = this.addDays(start, 6);
+        break;
+      }
+      case 'last-week': {
+        const daysSinceMonday = (now.getDay() + 6) % 7;
+        start = this.addDays(this.startOfDay(now), -daysSinceMonday - 7);
         end = this.addDays(start, 6);
         break;
       }

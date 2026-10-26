@@ -24,6 +24,15 @@
     <button
       class="btn btn-secondary"
       type="button"
+      [class.is-selected]="datePreset() === 'last-week'"
+      [attr.aria-pressed]="datePreset() === 'last-week'"
+      (click)="setDatePreset('last-week')"
+    >
+      Last week
+    </button>
+    <button
+      class="btn btn-secondary"
+      type="button"
       [class.is-selected]="datePreset() === 'last-month'"
       [attr.aria-pressed]="datePreset() === 'last-month'"
       (click)="setDatePreset('last-month')"

@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { strFromU8, unzipSync } from 'fflate';
 import { vi } from 'vitest';
 import type { TimeEntry } from '../../core/models/time-entry.model';
 import { ReportExportPanel } from './report-export-panel';
@@ -67,19 +68,38 @@ describe('ReportExportPanel', () => {
     vi.restoreAllMocks();
   });
 
-  it('downloads the filtered entries as CSV named after the date range', async () => {
+  it('downloads a two-sheet report workbook for all users in the selected date range', async () => {
     setEntries([makeEntry('e1', true, new Date(2026, 9, 19, 10).toISOString())]);
 
-    findButton('Export CSV').click();
+    findButton('Export workbook').click();
+    const request = httpMock.expectOne(
+      (req) =>
+        req.url.endsWith('/reports/time-entries') && req.params.get('userId') === 'all',
+    );
+    request.flush({
+      timeEntries: [
+        makeEntry('e1', true, new Date(2026, 9, 19, 10).toISOString()),
+        {
+          ...makeEntry('e2', true, new Date(2026, 9, 20, 11).toISOString()),
+          userId: 'u2',
+          user: { id: 'u2', name: 'Blake Roe' },
+        },
+      ],
+    });
 
-    expect(downloads[0].filename).toBe('time-report_2026-10-19_to_2026-10-25.csv');
-    expect(await downloads[0].blob.text()).toContain('Website');
+    expect(downloads[0].filename).toBe('time-report_2026-10-19_to_2026-10-25.xlsx');
+    const files = unzipSync(new Uint8Array(await downloads[0].blob.arrayBuffer()));
+    const summaryXml = strFromU8(files['xl/worksheets/sheet1.xml']);
+    const detailsXml = strFromU8(files['xl/worksheets/sheet2.xml']);
+    expect(summaryXml).toContain('Alex Doe');
+    expect(summaryXml).toContain('Blake Roe');
+    expect(detailsXml).toContain('Website');
   });
 
-  it('disables CSV export when the report has no entries', () => {
+  it('keeps report export available when the selected user has no entries', () => {
     setEntries([]);
 
-    expect(findButton('Export CSV').disabled).toBe(true);
+    expect(findButton('Export workbook').disabled).toBe(false);
   });
 
   it('requires an earnings rate for every pay type used before downloading', () => {

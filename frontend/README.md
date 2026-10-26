@@ -41,12 +41,12 @@ Tracker time inputs accept 12-hour and 24-hour text formats such as `9am`, `9.15
 
 ### Report exports
 
-The Export card on the Reports page downloads exactly the entries matching the current filters:
+The Export card on the Reports page can download a report workbook for all users in the selected
+date range or a Xero payroll CSV using the current report filters:
 
 - **Import CSV** – restores completed entries from a ClockIt report CSV. Choose a file, review the row count, then confirm the import. Missing projects and tasks are created automatically: projects use the default colour, billable and active settings (and the oldest shared workspace), while tasks default to Hourly Pay. If there is no workspace yet, an Imported Workspace is created. Imported rows are assigned to the signed-in account, and identical entries already in that account are skipped. The import is limited to 5 MB and 5,000 rows.
-- **Export CSV** – one row per entry (date, start/end time, ISO timestamps, user, project number/name, task, description, billable, `hh:mm:ss` and decimal-hour durations). Running entries are included with their duration so far. Text cells starting with `=`, `+`, `-` or `@` are prefixed with `'` to prevent spreadsheet formula injection. The ISO timestamp columns preserve the original instant when an export is moved between time zones.
+- **Export workbook** – downloads a two-sheet Excel workbook for the selected date range and all users, regardless of other report filters. `Page 1 - User Summary` lists each user's total hours; `Page 2 - Entry Details` contains the per-entry report fields, including ISO timestamps and durations. Running entries are included with their elapsed duration at export time. User-controlled text is escaped to prevent spreadsheet formula injection.
 - **Export to Xero payroll** – a timesheet CSV for Xero Payroll (Australia) with the columns `Employee`, `Date` (`DD/MM/YYYY`), `Earnings Rate` and `Hours`. All completed entries (billable or not) are totalled into one row per employee, day and earnings rate; running timers are skipped. Each task has a pay type (Hourly Pay, Public Holiday, Sick Leave or Annual Leave, set on the Projects page; existing tasks are Hourly Pay), and each pay type maps to an earnings rate name entered in the export form (defaults: `Ordinary Hours`, `Public Holiday`, `Sick Leave`, `Annual Leave`). Those names must match the earnings rates in your Xero payroll settings, and employee names must match Xero's employee records. Pay types mapped to the same name are merged. Xero's help pages couldn't be checked automatically, so compare the headers with the timesheet template downloaded from your Xero Payroll import screen and adjust if they differ.
-
 A direct Xero API (OAuth 2.0) push is not implemented yet.
 
 ---

@@ -55,7 +55,18 @@ function toCsv(rows: (string | number)[][]): string {
   return CSV_BOM + rows.map((row) => row.map(csvCell).join(',')).join(CSV_NEWLINE) + CSV_NEWLINE;
 }
 
-export function buildReportCsv(entries: TimeEntry[], now: number): string {
+export function entriesInDateRange(
+  entries: TimeEntry[],
+  startDate: string,
+  endDate: string,
+): TimeEntry[] {
+  return entries.filter((entry) => {
+    const date = localDateKey(new Date(entry.startTime));
+    return date && (!startDate || date >= startDate) && (!endDate || date <= endDate);
+  });
+}
+
+export function buildReportRows(entries: TimeEntry[], now: number): (string | number)[][] {
   const rows: (string | number)[][] = [
     [
       'Date',
@@ -91,7 +102,11 @@ export function buildReportCsv(entries: TimeEntry[], now: number): string {
       (seconds / 3600).toFixed(2),
     ]);
   }
-  return toCsv(rows);
+  return rows;
+}
+
+export function buildReportCsv(entries: TimeEntry[], now: number): string {
+  return toCsv(buildReportRows(entries, now));
 }
 
 // Payroll only counts finished entries; a running timer has no final hours yet.
@@ -105,7 +120,10 @@ function xeroDate(dateKey: string): string {
 }
 
 // One row per employee, day and earnings rate, with all completed entries summed.
-export function buildXeroTimesheetCsv(entries: TimeEntry[], options: XeroTimesheetOptions): string {
+export function buildXeroTimesheetRows(
+  entries: TimeEntry[],
+  options: XeroTimesheetOptions,
+): (string | number)[][] {
   const days = new Map<
     string,
     { employee: string; date: string; earningsRate: string; seconds: number }
@@ -120,13 +138,13 @@ export function buildXeroTimesheetCsv(entries: TimeEntry[], options: XeroTimeshe
     days.set(key, day);
   }
 
-  const rows: (string | number)[][] = [['Employee', 'Date', 'Earnings Rate', 'Hours']];
   const sortedDays = [...days.values()].sort(
     (a, b) =>
       a.employee.localeCompare(b.employee) ||
       a.date.localeCompare(b.date) ||
       a.earningsRate.localeCompare(b.earningsRate),
   );
+  const rows: (string | number)[][] = [['Employee', 'Date', 'Earnings Rate', 'Hours']];
   for (const day of sortedDays) {
     rows.push([
       safeText(day.employee),
@@ -135,11 +153,15 @@ export function buildXeroTimesheetCsv(entries: TimeEntry[], options: XeroTimeshe
       (day.seconds / 3600).toFixed(2),
     ]);
   }
-  return toCsv(rows);
+  return rows;
 }
 
-export function downloadTextFile(filename: string, content: string): void {
-  const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }));
+export function buildXeroTimesheetCsv(entries: TimeEntry[], options: XeroTimesheetOptions): string {
+  return toCsv(buildXeroTimesheetRows(entries, options));
+}
+
+export function downloadBlobFile(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
@@ -147,4 +169,8 @@ export function downloadTextFile(filename: string, content: string): void {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+export function downloadTextFile(filename: string, content: string): void {
+  downloadBlobFile(filename, new Blob([content], { type: 'text/csv;charset=utf-8' }));
 }
