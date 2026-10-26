@@ -325,7 +325,7 @@ describe('Dashboard', () => {
       });
   });
 
-  it('omits empty descriptions and uses non-typable date-time pickers', () => {
+  it('omits empty descriptions and provides one date with separate times and duration', () => {
     const project = {
       id: 'p1',
       name: 'Sydney Opera House',
@@ -364,11 +364,19 @@ describe('Dashboard', () => {
 
     expect(fixture.nativeElement.querySelector('.entry-description')).toBeNull();
     const dateTimeFields = fixture.nativeElement.querySelector('.entry-date-time-fields');
-    expect(dateTimeFields.children.length).toBe(2);
-    expect(dateTimeFields.querySelectorAll('app-date-time-picker').length).toBe(2);
-    expect(dateTimeFields.querySelectorAll('input[type="datetime-local"]').length).toBe(0);
-    expect(dateTimeFields.querySelectorAll('.manual-time-input').length).toBe(2);
-    expect(dateTimeFields.querySelector('.time-trigger')).toBeNull();
+    expect(dateTimeFields.querySelectorAll('input[type="date"]')).toHaveLength(1);
+    expect(dateTimeFields.querySelectorAll('input[type="time"]')).toHaveLength(2);
+    expect(dateTimeFields.querySelector('.entry-edit-duration strong').textContent).toBe('1h 0m');
+
+    const endTimeInput = dateTimeFields.querySelector(
+      'input[aria-label="Time entry end time"]',
+    ) as HTMLInputElement;
+    endTimeInput.value = '10:30';
+    endTimeInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(component.editingDuration()).toBe('1h 30m');
+    httpMock.expectNone((request) => request.method === 'PATCH');
   });
 
   it('opens only the time entry the user clicks', () => {
@@ -425,14 +433,15 @@ describe('Dashboard', () => {
       projectId: 'p1',
       taskId: 't1',
       description: '',
-      startTime: '2026-10-18T10:00',
-      endTime: '2026-10-18T09:00',
+      date: '2026-10-18',
+      startTime: '10:00',
+      endTime: '09:00',
       isBillable: true,
     });
 
     component.saveEntryEdit();
 
-    expect(component.editingError()).toBe('End time must be after start time.');
+    expect(component.editingError()).toBe('End time must be after start time on the same date.');
     httpMock.expectNone((request) => request.method === 'PATCH');
   });
 
@@ -504,8 +513,9 @@ describe('Dashboard', () => {
 
     component.updateEntryDraft({
       taskId: 't2',
-      startTime: '2026-10-16T09:00',
-      endTime: '2026-10-16T11:00',
+      date: '2026-10-16',
+      startTime: '09:00',
+      endTime: '11:00',
       description: 'Updated drafting',
       isBillable: false,
     });

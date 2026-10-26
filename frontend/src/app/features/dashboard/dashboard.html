@@ -290,22 +290,37 @@
                       Billable
                     </label>
                     <div class="entry-date-time-fields">
-                      <app-date-time-picker
-                        label="Start"
-                        ariaLabel="Start date and time"
-                        [manualTime]="true"
-                        [value]="editingEntry()?.startTime ?? ''"
-                        (valueChange)="updateEntryDraft({ startTime: $event })"
-                      />
-                      <app-date-time-picker
-                        label="End"
-                        ariaLabel="End date and time"
-                        [alignRight]="true"
-                        [manualTime]="true"
-                        [value]="editingEntry()?.endTime ?? ''"
-                        [clearable]="true"
-                        (valueChange)="updateEntryDraft({ endTime: $event })"
-                      />
+                      <label>
+                        Date
+                        <input
+                          type="date"
+                          aria-label="Time entry date"
+                          [ngModel]="editingEntry()?.date"
+                          (ngModelChange)="updateEntryDraft({ date: $event })"
+                        />
+                      </label>
+                      <label>
+                        Start time
+                        <input
+                          type="time"
+                          aria-label="Time entry start time"
+                          [ngModel]="editingEntry()?.startTime"
+                          (ngModelChange)="updateEntryDraft({ startTime: $event })"
+                        />
+                      </label>
+                      <label>
+                        End time
+                        <input
+                          type="time"
+                          aria-label="Time entry end time"
+                          [ngModel]="editingEntry()?.endTime"
+                          (ngModelChange)="updateEntryDraft({ endTime: $event })"
+                        />
+                      </label>
+                      <div class="entry-edit-duration" role="status">
+                        <span>Duration</span>
+                        <strong>{{ editingDuration() }}</strong>
+                      </div>
                     </div>
                   </div>
                   @if (editingError(); as error) {

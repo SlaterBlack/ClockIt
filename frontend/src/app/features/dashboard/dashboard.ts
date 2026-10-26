@@ -17,6 +17,7 @@ interface TimeEntryEdit {
   projectId: string;
   taskId: string;
   description: string;
+  date: string;
   startTime: string;
   endTime: string;
   isBillable: boolean;
@@ -97,6 +98,26 @@ export class Dashboard implements OnInit {
   readonly errorMessage = signal<string | null>(null);
   readonly isSubmitting = signal(false);
   readonly editingEntry = signal<TimeEntryEdit | null>(null);
+  readonly editingDuration = computed(() => {
+    const draft = this.editingEntry();
+    if (!draft?.date || !draft.startTime) {
+      return '—';
+    }
+
+    const start = new Date(`${draft.date}T${draft.startTime}`);
+    const end = draft.endTime
+      ? new Date(`${draft.date}T${draft.endTime}`)
+      : new Date(this.clockNow());
+    if (
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime()) ||
+      end <= start
+    ) {
+      return '—';
+    }
+
+    return this.formatDurationSeconds(Math.round((end.getTime() - start.getTime()) / 1000));
+  });
   readonly editingTasks = signal<TaskDto[]>([]);
   readonly editingError = signal<string | null>(null);
   readonly isSavingEntry = signal(false);
@@ -389,8 +410,9 @@ export class Dashboard implements OnInit {
       projectId: entry.projectId ?? '',
       taskId: entry.taskId ?? '',
       description: entry.description,
-      startTime: this.toLocalDateTime(entry.startTime),
-      endTime: this.toLocalDateTime(entry.endTime),
+      date: this.toLocalDateTime(entry.startTime).slice(0, 10),
+      startTime: this.toLocalDateTime(entry.startTime).slice(11),
+      endTime: entry.endTime ? this.toLocalDateTime(entry.endTime).slice(11) : '',
       isBillable: entry.isBillable,
     };
     this.entryPendingRemovalId.set(null);
@@ -470,19 +492,19 @@ export class Dashboard implements OnInit {
       this.editingError.set('Select a project and task.');
       return;
     }
-    if (!draft.startTime) {
-      this.editingError.set('Enter a start date and time.');
+    if (!draft.date || !draft.startTime) {
+      this.editingError.set('Enter a date and start time.');
       return;
     }
 
-    const start = new Date(draft.startTime);
-    const end = draft.endTime ? new Date(draft.endTime) : null;
+    const start = new Date(`${draft.date}T${draft.startTime}`);
+    const end = draft.endTime ? new Date(`${draft.date}T${draft.endTime}`) : null;
     if (Number.isNaN(start.getTime()) || (end && Number.isNaN(end.getTime()))) {
-      this.editingError.set('Enter valid start and end date and times.');
+      this.editingError.set('Enter a valid date and start and end times.');
       return;
     }
-    if (end && end < start) {
-      this.editingError.set('End time must be after start time.');
+    if (end && end <= start) {
+      this.editingError.set('End time must be after start time on the same date.');
       return;
     }
 
