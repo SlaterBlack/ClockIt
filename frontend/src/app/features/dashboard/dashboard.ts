@@ -63,6 +63,16 @@ export class Dashboard implements OnInit {
   readonly description = signal('');
   readonly timeEntries = signal<TimeEntryDto[]>([]);
   readonly clockNow = signal(Date.now());
+  readonly weekStart = signal(this.startOfWeek(new Date()));
+  readonly weekEnd = computed(() => {
+    const end = new Date(this.weekStart());
+    end.setDate(end.getDate() + 6);
+    return end;
+  });
+  readonly currentWeekStart = computed(() => this.startOfWeek(new Date(this.clockNow())));
+  readonly canGoToNextWeek = computed(
+    () => this.weekStart().getTime() < this.currentWeekStart().getTime(),
+  );
   readonly entryDays = computed(() => {
     const days = new Map<string, TimeEntryDay>();
     const now = this.clockNow();
@@ -88,6 +98,12 @@ export class Dashboard implements OnInit {
         : Math.max(0, Math.round((now - start.getTime()) / 1000));
     }
     return [...days.values()];
+  });
+  readonly weekEntryDays = computed(() => {
+    const start = this.weekStart();
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    return this.entryDays().filter((day) => day.date >= start && day.date < end);
   });
   readonly runningEntry = signal<TimeEntryDto | null>(null);
   readonly runningTimerEdit = signal<RunningTimerEdit | null>(null);
@@ -622,6 +638,21 @@ export class Dashboard implements OnInit {
     return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
   }
 
+  showPreviousWeek(): void {
+    const start = new Date(this.weekStart());
+    start.setDate(start.getDate() - 7);
+    this.weekStart.set(start);
+  }
+
+  showNextWeek(): void {
+    if (!this.canGoToNextWeek()) {
+      return;
+    }
+    const start = new Date(this.weekStart());
+    start.setDate(start.getDate() + 7);
+    this.weekStart.set(start);
+  }
+
   private refresh(): void {
     this.timeEntryService.list().subscribe({
       next: ({ timeEntries }) => {
@@ -678,6 +709,12 @@ export class Dashboard implements OnInit {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
       date.getHours(),
     )}:${pad(date.getMinutes())}`;
+  }
+
+  private startOfWeek(date: Date): Date {
+    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    return start;
   }
 
   private getRunningStartTime(draft: RunningTimerEdit): Date {

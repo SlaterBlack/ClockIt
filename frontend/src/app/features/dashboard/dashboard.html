@@ -196,12 +196,38 @@
   <p class="error-text" role="alert">{{ error }}</p>
 }
 
-<h2>Recent entries</h2>
+<div class="entry-history-header">
+  <h2>Recent entries</h2>
+  <nav class="week-pagination" aria-label="Time tracker week">
+    <button
+      class="btn btn-secondary"
+      type="button"
+      aria-label="Previous week"
+      (click)="showPreviousWeek()"
+    >
+      Previous week
+    </button>
+    <span role="status">
+      {{ weekStart() | date: 'MMM d' }}–{{ weekEnd() | date: 'MMM d, y' }}
+    </span>
+    <button
+      class="btn btn-secondary"
+      type="button"
+      aria-label="Next week"
+      [disabled]="!canGoToNextWeek()"
+      (click)="showNextWeek()"
+    >
+      Next week
+    </button>
+  </nav>
+</div>
 @if (timeEntries().length === 0) {
   <div class="card"><p>No time entries yet. Start your first timer above.</p></div>
+} @else if (weekEntryDays().length === 0) {
+  <div class="card"><p>No time entries for this week.</p></div>
 } @else {
   <div class="entry-days">
-    @for (day of entryDays(); track day.key) {
+    @for (day of weekEntryDays(); track day.key) {
       <section class="card entry-day">
         <header class="entry-day-heading">
           <h3 class="entry-day-date">{{ day.date | date: 'fullDate' }}</h3>

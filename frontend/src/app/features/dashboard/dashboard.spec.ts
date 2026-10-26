@@ -33,6 +33,65 @@ describe('Dashboard', () => {
     expect(component).toBeTruthy();
   });
 
+  it('paginates time entries by week and prevents navigating into future weeks', () => {
+    const currentWeekStart = new Date(component.weekStart());
+    const currentEntryStart = new Date(currentWeekStart);
+    currentEntryStart.setHours(9, 0, 0, 0);
+    const previousEntryStart = new Date(currentEntryStart);
+    previousEntryStart.setDate(previousEntryStart.getDate() - 7);
+    const makeEntry = (id: string, description: string, startTime: Date) => ({
+      id,
+      description,
+      startTime: startTime.toISOString(),
+      endTime: new Date(startTime.getTime() + 3600_000).toISOString(),
+      durationSeconds: 3600,
+      isBillable: true,
+      userId: 'u1',
+      projectId: 'p1',
+      taskId: 't1',
+      project: {
+        id: 'p1',
+        name: description,
+        projectNumber: null,
+        color: '#2D6A4F',
+        isBillable: true,
+        workspaceId: 'w1',
+        archived: false,
+        createdAt: '',
+        updatedAt: '',
+      },
+      task: { id: 't1', name: 'Design', projectId: 'p1', createdAt: '', updatedAt: '' },
+      createdAt: '',
+      updatedAt: '',
+    });
+    component.timeEntries.set([
+      makeEntry('e1', 'Current week', currentEntryStart),
+      makeEntry('e2', 'Previous week', previousEntryStart),
+    ]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.entry-day')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('.entry-project-task').textContent).toContain(
+      'Current week',
+    );
+    expect(
+      (fixture.nativeElement.querySelector('[aria-label="Next week"]') as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    (fixture.nativeElement.querySelector('[aria-label="Previous week"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.entry-day')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('.entry-project-task').textContent).toContain(
+      'Previous week',
+    );
+    expect(
+      (fixture.nativeElement.querySelector('[aria-label="Next week"]') as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+  });
+
   it('does not start a timer without a task', () => {
     component.startTimer();
 
@@ -374,6 +433,7 @@ describe('Dashboard', () => {
       updatedAt: '',
     };
     const task = { id: 't1', name: 'Design', projectId: 'p1', createdAt: '', updatedAt: '' };
+    component.weekStart.set(new Date(2026, 9, 12));
     component.timeEntries.set([
       {
         id: 'e1',
@@ -452,6 +512,7 @@ describe('Dashboard', () => {
       createdAt: '',
       updatedAt: '',
     }));
+    component.weekStart.set(new Date(2026, 9, 12));
     component.timeEntries.set(entries);
     fixture.detectChanges();
 
@@ -532,6 +593,7 @@ describe('Dashboard', () => {
       updatedAt: '',
     };
     component.projects.set([project, replacementProject]);
+    component.weekStart.set(new Date(2026, 9, 12));
     component.timeEntries.set([
       entry,
       { ...entry, id: 'e2', startTime: '2026-10-17T11:00:00.000Z' },

@@ -1,8 +1,16 @@
 import { strToU8, zipSync } from 'fflate';
+import { PAY_TYPES, type PayType } from '../../core/models/pay-type.model';
 import type { TimeEntry } from '../../core/models/time-entry.model';
 import { buildReportRows, entryDurationSeconds, entriesInDateRange } from './report-export';
 
 const XLSX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const PAY_TYPE_SUMMARY_ORDER: PayType[] = [
+  'hourly',
+  'public-holiday',
+  'annual-leave',
+  'sick-leave',
+  'unpaid',
+];
 
 export function buildTimeReportWorkbook(
   allEntries: TimeEntry[],
@@ -11,23 +19,57 @@ export function buildTimeReportWorkbook(
   endDate: string,
 ): Blob {
   const entries = entriesInDateRange(allEntries, startDate, endDate);
-  const userTotals = new Map<string, { name: string; seconds: number }>();
+  const userTotals = new Map<string, { name: string; seconds: Record<PayType, number> }>();
   for (const entry of entries) {
     const user = userTotals.get(entry.userId) ?? {
       name: entry.user?.name ?? '',
-      seconds: 0,
+      seconds: Object.fromEntries(PAY_TYPES.map((type) => [type.value, 0])) as Record<
+        PayType,
+        number
+      >,
     };
-    user.seconds += entryDurationSeconds(entry, now);
+    const payType = entry.task?.payType ?? 'hourly';
+    user.seconds[payType] += entryDurationSeconds(entry, now);
     userTotals.set(entry.userId, user);
   }
 
+  const sortedUsers = [...userTotals.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const periodTotals = Object.fromEntries(PAY_TYPES.map((type) => [type.value, 0])) as Record<
+    PayType,
+    number
+  >;
+  for (const user of sortedUsers) {
+    for (const type of PAY_TYPES) {
+      periodTotals[type.value] += user.seconds[type.value];
+    }
+  }
+  const activePayTypes = PAY_TYPES.filter((type) => periodTotals[type.value] > 0).sort(
+    (a, b) =>
+      PAY_TYPE_SUMMARY_ORDER.indexOf(a.value) - PAY_TYPE_SUMMARY_ORDER.indexOf(b.value),
+  );
+  const paidPayTypes = PAY_TYPES.filter((type) => type.value !== 'unpaid');
+  const totalPaidHours = (seconds: Record<PayType, number>) =>
+    paidPayTypes.reduce((total, type) => total + seconds[type.value], 0) / 3600;
   const summaryRows: (string | number)[][] = [
     ['Report period', startDate || 'All dates', endDate || 'All dates'],
     [],
-    ['User', 'Hours worked'],
-    ...[...userTotals.values()]
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((user) => [user.name, user.seconds / 3600]),
+    [
+      'Name',
+      'Total Paid Hours',
+      ...activePayTypes.map((type) =>
+        type.value === 'hourly' ? 'Hourly Wage' : type.label,
+      ),
+    ],
+    ...sortedUsers.map((user) => [
+      user.name,
+      totalPaidHours(user.seconds),
+      ...activePayTypes.map((type) => user.seconds[type.value] / 3600),
+    ]),
+    [
+      'All users',
+      totalPaidHours(periodTotals),
+      ...activePayTypes.map((type) => periodTotals[type.value] / 3600),
+    ],
   ];
   const detailRows = buildReportRows(entries, now).map((row, rowIndex) => {
     if (rowIndex === 0) {

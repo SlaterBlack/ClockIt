@@ -60,6 +60,56 @@ describe('Reports', () => {
     expect(fixture.nativeElement.querySelector('tbody').textContent).toContain('Current User');
   });
 
+  it('paginates detailed report entries and supports the configured page sizes', () => {
+    httpMock
+      .expectOne((request) => request.url.endsWith('/reports/users'))
+      .flush({ users: [{ id: 'u1', name: 'Current User' }], currentUserId: 'u1' });
+    httpMock
+      .expectOne((request) => request.url.endsWith('/reports/time-entries'))
+      .flush({
+        timeEntries: Array.from({ length: 31 }, (_, index) =>
+          makeEntry(
+            `e${index + 1}`,
+            new Date(2026, 9, 19, 9, index),
+            3600,
+            true,
+            'p1',
+            't1',
+            'Design',
+          ),
+        ),
+      });
+    component.startDate.set('');
+    component.endDate.set('');
+    fixture.detectChanges();
+
+    const pageSizeSelect = fixture.nativeElement.querySelector(
+      '[aria-label="Entries per page"]',
+    ) as HTMLSelectElement;
+    expect(component.pageSize()).toBe(25);
+    expect([...pageSizeSelect.options].map((option) => option.textContent.trim())).toEqual([
+      '25',
+      '50',
+      '100',
+      '150',
+    ]);
+    expect(component.totalPages()).toBe(2);
+    expect(fixture.nativeElement.querySelectorAll('tbody tr')).toHaveLength(25);
+
+    component.showNextPage();
+    fixture.detectChanges();
+    expect(component.currentPageNumber()).toBe(2);
+    expect(fixture.nativeElement.querySelectorAll('tbody tr')).toHaveLength(6);
+
+    pageSizeSelect.options[1].selected = true;
+    pageSizeSelect.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(component.currentPageNumber()).toBe(1);
+    expect(component.totalPages()).toBe(1);
+    expect(fixture.nativeElement.querySelectorAll('tbody tr')).toHaveLength(31);
+    expect(component.pageSize()).toBe(50);
+  });
+
   it('shows last week next to this week and selects the previous Monday-to-Sunday range', () => {
     httpMock
       .expectOne((request) => request.url.endsWith('/reports/users'))

@@ -42,6 +42,9 @@ export class Reports implements OnInit {
   readonly clockNow = signal(Date.now());
   readonly isLoading = signal(true);
   readonly errorMessage = signal<string | null>(null);
+  readonly pageSizeOptions = [25, 50, 100, 150] as const;
+  readonly pageSize = signal<number>(25);
+  readonly currentPage = signal(1);
 
   readonly projectOptions = computed(() => {
     const projects = new Map<string, string>();
@@ -96,6 +99,20 @@ export class Reports implements OnInit {
       })
       .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
   });
+  readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.filteredEntries().length / this.pageSize())),
+  );
+  readonly currentPageNumber = computed(() => Math.min(this.currentPage(), this.totalPages()));
+  readonly paginatedEntries = computed(() => {
+    const start = (this.currentPageNumber() - 1) * this.pageSize();
+    return this.filteredEntries().slice(start, start + this.pageSize());
+  });
+  readonly pageRangeStart = computed(() =>
+    this.filteredEntries().length ? (this.currentPageNumber() - 1) * this.pageSize() + 1 : 0,
+  );
+  readonly pageRangeEnd = computed(() =>
+    Math.min(this.currentPageNumber() * this.pageSize(), this.filteredEntries().length),
+  );
 
   readonly totalDurationSeconds = computed(() =>
     this.filteredEntries().reduce((total, entry) => total + this.durationSeconds(entry), 0),
@@ -143,11 +160,13 @@ export class Reports implements OnInit {
   }
 
   onUserFilterChange(userId: string): void {
+    this.currentPage.set(1);
     this.selectedUserId.set(userId);
     this.loadTimeEntries(userId);
   }
 
   setDatePreset(preset: DatePreset): void {
+    this.currentPage.set(1);
     this.datePreset.set(preset);
     const now = new Date();
     let start: Date;
@@ -185,15 +204,45 @@ export class Reports implements OnInit {
   }
 
   onProjectFilterChange(projectId: string): void {
+    this.currentPage.set(1);
     this.projectFilter.set(projectId);
     this.taskFilter.set('');
   }
 
   onDateChange(): void {
+    this.currentPage.set(1);
     this.datePreset.set('custom');
   }
 
+  onTaskFilterChange(taskId: string): void {
+    this.currentPage.set(1);
+    this.taskFilter.set(taskId);
+  }
+
+  onBillableFilterChange(filter: BillableFilter): void {
+    this.currentPage.set(1);
+    this.billableFilter.set(filter);
+  }
+
+  setPageSize(value: string | number): void {
+    const selectedSize = Number(value);
+    if (!this.pageSizeOptions.some((size) => size === selectedSize)) {
+      return;
+    }
+    this.pageSize.set(selectedSize);
+    this.currentPage.set(1);
+  }
+
+  showPreviousPage(): void {
+    this.currentPage.set(Math.max(1, this.currentPageNumber() - 1));
+  }
+
+  showNextPage(): void {
+    this.currentPage.set(Math.min(this.totalPages(), this.currentPageNumber() + 1));
+  }
+
   onImportCompleted(): void {
+    this.currentPage.set(1);
     const userId = this.currentUserId();
     this.selectedUserId.set(userId);
     this.datePreset.set('custom');

@@ -76,14 +76,16 @@ describe('ReportExportPanel', () => {
       (req) =>
         req.url.endsWith('/reports/time-entries') && req.params.get('userId') === 'all',
     );
+    const annualLeaveEntry = {
+      ...makeEntry('e2', true, new Date(2026, 9, 20, 11).toISOString()),
+      userId: 'u2',
+      user: { id: 'u2', name: 'Blake Roe' },
+      task: { id: 't2', name: 'Annual Leave', payType: 'annual-leave' as const },
+    };
     request.flush({
       timeEntries: [
         makeEntry('e1', true, new Date(2026, 9, 19, 10).toISOString()),
-        {
-          ...makeEntry('e2', true, new Date(2026, 9, 20, 11).toISOString()),
-          userId: 'u2',
-          user: { id: 'u2', name: 'Blake Roe' },
-        },
+        annualLeaveEntry,
       ],
     });
 
@@ -93,6 +95,11 @@ describe('ReportExportPanel', () => {
     const detailsXml = strFromU8(files['xl/worksheets/sheet2.xml']);
     expect(summaryXml).toContain('Alex Doe');
     expect(summaryXml).toContain('Blake Roe');
+    expect(summaryXml).toContain('Total Paid Hours');
+    expect(summaryXml).toContain('Hourly Wage');
+    expect(summaryXml).toContain('Annual Leave');
+    expect(summaryXml).not.toContain('Public Holiday');
+    expect(summaryXml).toContain('All users');
     expect(detailsXml).toContain('Website');
   });
 

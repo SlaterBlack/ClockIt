@@ -103,7 +103,7 @@
       <select
         aria-label="Filter by task"
         [ngModel]="taskFilter()"
-        (ngModelChange)="taskFilter.set($event)"
+        (ngModelChange)="onTaskFilterChange($event)"
       >
         <option value="">All tasks</option>
         @for (task of taskOptions(); track task.id) {
@@ -116,7 +116,7 @@
       <select
         aria-label="Filter by billable status"
         [ngModel]="billableFilter()"
-        (ngModelChange)="billableFilter.set($event)"
+        (ngModelChange)="onBillableFilterChange($event)"
       >
         <option value="all">All entries</option>
         <option value="billable">Billable</option>
@@ -203,7 +203,21 @@
         <h2>Detailed report</h2>
         <p>Individual time entries, newest first.</p>
       </div>
-      <span class="detail-count">{{ filteredEntries().length }} entries</span>
+      <div class="report-detail-controls">
+        <label class="report-page-size">
+          Entries per page
+          <select
+            aria-label="Entries per page"
+            [ngModel]="pageSize()"
+            (ngModelChange)="setPageSize($event)"
+          >
+            @for (size of pageSizeOptions; track size) {
+              <option [ngValue]="size">{{ size }}</option>
+            }
+          </select>
+        </label>
+        <span class="detail-count">{{ filteredEntries().length }} entries</span>
+      </div>
     </div>
     @if (filteredEntries().length === 0) {
       <p class="report-empty">No time entries match this report.</p>
@@ -222,7 +236,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (entry of filteredEntries(); track entry.id) {
+            @for (entry of paginatedEntries(); track entry.id) {
               <tr>
                 <td>{{ entry.startTime | date: 'mediumDate' }}</td>
                 <td>
@@ -250,6 +264,30 @@
           </tbody>
         </table>
       </div>
+      @if (totalPages() > 1) {
+        <nav class="report-pagination" aria-label="Detailed report pages">
+          <span>Showing {{ pageRangeStart() }}–{{ pageRangeEnd() }} of {{ filteredEntries().length }}</span>
+          <div>
+            <button
+              class="btn btn-secondary"
+              type="button"
+              [disabled]="currentPageNumber() === 1"
+              (click)="showPreviousPage()"
+            >
+              Previous
+            </button>
+            <span>Page {{ currentPageNumber() }} of {{ totalPages() }}</span>
+            <button
+              class="btn btn-secondary"
+              type="button"
+              [disabled]="currentPageNumber() === totalPages()"
+              (click)="showNextPage()"
+            >
+              Next
+            </button>
+          </div>
+        </nav>
+      }
     }
   </section>
 }
