@@ -14,6 +14,7 @@ interface TaskView extends TaskDto {
   editingDetails: boolean;
   editedName: string;
   editedPayType: PayType;
+  editedIsBillable: boolean;
   detailsError: string | null;
 }
 
@@ -21,6 +22,7 @@ interface ProjectView extends ProjectDto {
   tasks: TaskView[];
   newTaskName: string;
   newTaskPayType: PayType;
+  newTaskIsBillable: boolean;
   taskError: string | null;
   colorError: string | null;
   archiveError: string | null;
@@ -322,8 +324,16 @@ export class Projects implements OnInit {
     this.updateProject(projectId, (project) => ({ ...project, newTaskPayType: payType }));
   }
 
+  setNewTaskIsBillable(projectId: string, isBillable: boolean): void {
+    this.updateProject(projectId, (project) => ({ ...project, newTaskIsBillable: isBillable }));
+  }
+
   setEditedTaskPayType(projectId: string, taskId: string, payType: PayType): void {
     this.updateTask(projectId, taskId, (task) => ({ ...task, editedPayType: payType }));
+  }
+
+  setEditedTaskIsBillable(projectId: string, taskId: string, isBillable: boolean): void {
+    this.updateTask(projectId, taskId, (task) => ({ ...task, editedIsBillable: isBillable }));
   }
 
   createTask(projectId: string): void {
@@ -337,24 +347,27 @@ export class Projects implements OnInit {
       return;
     }
 
-    this.taskService.create(projectId, name, project.newTaskPayType).subscribe({
-      next: ({ task }) => {
-        this.updateProject(projectId, (item) => ({
-          ...item,
-          tasks: this.sortTasks([...item.tasks, this.toTaskView(task)]),
-          newTaskName: '',
-          newTaskPayType: 'hourly',
-          taskError: null,
-        }));
-        this.addingTaskProjectId.set(null);
-      },
-      error: () => {
-        this.updateProject(projectId, (item) => ({
-          ...item,
-          taskError: 'Could not create the task. Try again.',
-        }));
-      },
-    });
+    this.taskService
+      .create(projectId, name, project.newTaskPayType, project.newTaskIsBillable)
+      .subscribe({
+        next: ({ task }) => {
+          this.updateProject(projectId, (item) => ({
+            ...item,
+            tasks: this.sortTasks([...item.tasks, this.toTaskView(task)]),
+            newTaskName: '',
+            newTaskPayType: 'hourly',
+            newTaskIsBillable: true,
+            taskError: null,
+          }));
+          this.addingTaskProjectId.set(null);
+        },
+        error: () => {
+          this.updateProject(projectId, (item) => ({
+            ...item,
+            taskError: 'Could not create the task. Try again.',
+          }));
+        },
+      });
   }
 
   editTaskDetails(projectId: string, taskId: string): void {
@@ -368,6 +381,7 @@ export class Projects implements OnInit {
               editingDetails: true,
               editedName: task.name,
               editedPayType: task.payType,
+              editedIsBillable: task.isBillable,
               detailsError: null,
             }
           : task,
@@ -408,30 +422,33 @@ export class Projects implements OnInit {
     }
 
     this.updateTask(projectId, taskId, (item) => ({ ...item, detailsError: null }));
-    this.taskService.update(projectId, taskId, name, task.editedPayType).subscribe({
-      next: ({ task: updatedTask }) =>
-        this.updateProject(projectId, (project) => ({
-          ...project,
-          tasks: this.sortTasks(
-            project.tasks.map((item) =>
-              item.id === taskId
-                ? {
-                    ...item,
-                    ...updatedTask,
-                    editingDetails: false,
-                    editedName: updatedTask.name,
-                    editedPayType: updatedTask.payType,
-                  }
-                : item,
+    this.taskService
+      .update(projectId, taskId, name, task.editedPayType, task.editedIsBillable)
+      .subscribe({
+        next: ({ task: updatedTask }) =>
+          this.updateProject(projectId, (project) => ({
+            ...project,
+            tasks: this.sortTasks(
+              project.tasks.map((item) =>
+                item.id === taskId
+                  ? {
+                      ...item,
+                      ...updatedTask,
+                      editingDetails: false,
+                      editedName: updatedTask.name,
+                      editedPayType: updatedTask.payType,
+                      editedIsBillable: updatedTask.isBillable,
+                    }
+                  : item,
+              ),
             ),
-          ),
-        })),
-      error: () =>
-        this.updateTask(projectId, taskId, (item) => ({
-          ...item,
-          detailsError: 'Could not update the task. Try again.',
-        })),
-    });
+          })),
+        error: () =>
+          this.updateTask(projectId, taskId, (item) => ({
+            ...item,
+            detailsError: 'Could not update the task. Try again.',
+          })),
+      });
   }
 
   removeTask(projectId: string, taskId: string): void {
@@ -467,6 +484,7 @@ export class Projects implements OnInit {
             tasks: (project.tasks ?? []).map((task) => this.toTaskView(task)),
             newTaskName: '',
             newTaskPayType: 'hourly' as PayType,
+            newTaskIsBillable: true,
             taskError: null,
             colorError: null,
             archiveError: null,
@@ -500,9 +518,11 @@ export class Projects implements OnInit {
     return {
       ...task,
       payType: task.payType ?? 'hourly',
+      isBillable: task.isBillable ?? true,
       editingDetails: false,
       editedName: task.name,
       editedPayType: task.payType ?? 'hourly',
+      editedIsBillable: task.isBillable ?? true,
       detailsError: null,
     };
   }

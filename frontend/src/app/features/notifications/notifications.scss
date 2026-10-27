@@ -1,0 +1,293 @@
+.notifications-intro {
+  margin: -0.5rem 0 var(--space-lg);
+  color: var(--color-text-muted);
+}
+
+.scheduled-report {
+  display: grid;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+}
+
+.dashboard-reminder-settings {
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+
+.dashboard-reminder-list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.dashboard-reminder-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.dashboard-reminder-copy {
+  flex: 1;
+  min-width: 0;
+
+  p {
+    margin: 0 0 var(--space-xs);
+    overflow-wrap: anywhere;
+  }
+
+  small {
+    color: var(--color-text-muted);
+    overflow-wrap: anywhere;
+  }
+}
+
+.dashboard-reminder-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-xs);
+}
+
+.dashboard-reminder-form {
+  display: grid;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+
+  h3 {
+    margin: 0;
+    color: var(--color-primary);
+    font-size: 1rem;
+  }
+
+  > label,
+  .reminder-time-fields label {
+    display: grid;
+    align-content: start;
+    gap: var(--space-xs);
+    color: var(--color-text-muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  textarea,
+  input[type='time'],
+  input[type='text'] {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+}
+
+.reminder-weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  legend {
+    padding: 0 0.35rem;
+    color: var(--color-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+}
+
+.reminder-time-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.reminder-recurrence-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.schedule-status {
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 99px;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+
+  &.is-enabled {
+    border-color: color-mix(in srgb, var(--color-success) 55%, var(--color-border));
+    background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
+    color: var(--color-primary);
+  }
+}
+
+.schedule-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-sm);
+
+  label {
+    display: grid;
+    align-content: start;
+    gap: var(--space-xs);
+    color: var(--color-text-muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .frequency-input {
+    display: flex;
+    gap: var(--space-xs);
+
+    input {
+      flex: 1 1 5rem;
+      width: 5rem;
+    }
+
+    select {
+      flex: 1 1 6rem;
+      width: 6rem;
+    }
+  }
+
+  input,
+  select {
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+  }
+
+  small {
+    font-size: 0.75rem;
+    font-weight: 400;
+  }
+}
+
+.schedule-recipients {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  legend {
+    padding: 0 0.35rem;
+    color: var(--color-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+}
+
+.recipient-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-xs) var(--space-md);
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    min-width: 0;
+    padding: 0.35rem;
+    border-radius: var(--radius-sm);
+
+    &:hover {
+      background: var(--color-primary-light);
+    }
+
+    > span:first-of-type {
+      display: grid;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    small {
+      color: var(--color-text-muted);
+      font-size: 0.78rem;
+    }
+  }
+
+  input,
+  .recipient-role {
+    flex: 0 0 auto;
+  }
+
+  .recipient-role {
+    margin-left: auto;
+    color: var(--color-text-muted);
+    font-size: 0.72rem;
+  }
+}
+
+.schedule-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-weight: 600;
+}
+
+.schedule-notice {
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-secondary) 18%, var(--color-surface));
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.schedule-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+@media (max-width: 900px) {
+  .schedule-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .schedule-fields,
+  .recipient-list,
+  .reminder-time-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-reminder-item {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .dashboard-reminder-actions {
+    width: 100%;
+  }
+}

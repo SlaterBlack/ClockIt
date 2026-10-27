@@ -37,6 +37,7 @@ describe('Projects', () => {
               id: 't1',
               name: 'Loaded task',
               projectId: 'p1',
+              isBillable: true,
               createdAt: '',
               updatedAt: '',
             },
@@ -53,6 +54,14 @@ describe('Projects', () => {
   it('loads project tasks from the single project-list response', () => {
     expect(component).toBeTruthy();
     expect(component.projects()[0].tasks.map((task) => task.name)).toEqual(['Loaded task']);
+  });
+
+  it('shows task pay type and billability together', () => {
+    component.toggleProjectTasks('p1');
+    fixture.detectChanges();
+
+    const taskSummary = fixture.nativeElement.querySelector('.task-summary') as HTMLElement;
+    expect(taskSummary.textContent?.replace(/\s+/g, ' ').trim()).toBe('Hourly Pay | Billable');
   });
 
   it('starts each project task section collapsed', () => {
@@ -235,18 +244,30 @@ describe('Projects', () => {
     editButton.click();
     component.setEditedTaskName('p1', 't1', 'Design planning');
     component.setEditedTaskPayType('p1', 't1', 'annual-leave');
+    component.setEditedTaskIsBillable('p1', 't1', false);
     component.saveTaskDetails('p1', 't1');
 
     const request = httpMock.expectOne(
       (req) => req.method === 'PATCH' && req.url.endsWith('/projects/p1/tasks/t1'),
     );
-    expect(request.request.body).toEqual({ name: 'Design planning', payType: 'annual-leave' });
+    expect(request.request.body).toEqual({
+      name: 'Design planning',
+      payType: 'annual-leave',
+      isBillable: false,
+    });
     request.flush({
-      task: { id: 't1', name: 'Design planning', projectId: 'p1', payType: 'annual-leave' },
+      task: {
+        id: 't1',
+        name: 'Design planning',
+        projectId: 'p1',
+        payType: 'annual-leave',
+        isBillable: false,
+      },
     });
 
     expect(component.projects()[0].tasks[0].name).toBe('Design planning');
     expect(component.projects()[0].tasks[0].payType).toBe('annual-leave');
+    expect(component.projects()[0].tasks[0].isBillable).toBe(false);
   });
 
   it('creates tasks with the selected pay type', () => {
@@ -254,19 +275,32 @@ describe('Projects', () => {
     component.projects.set([project]);
     component.setNewTaskName('p1', 'Public holiday');
     component.setNewTaskPayType('p1', 'public-holiday');
+    component.setNewTaskIsBillable('p1', false);
 
     component.createTask('p1');
 
     const request = httpMock.expectOne(
       (req) => req.method === 'POST' && req.url.endsWith('/projects/p1/tasks'),
     );
-    expect(request.request.body).toEqual({ name: 'Public holiday', payType: 'public-holiday' });
+    expect(request.request.body).toEqual({
+      name: 'Public holiday',
+      payType: 'public-holiday',
+      isBillable: false,
+    });
     request.flush({
-      task: { id: 't9', name: 'Public holiday', projectId: 'p1', payType: 'public-holiday' },
+      task: {
+        id: 't9',
+        name: 'Public holiday',
+        projectId: 'p1',
+        payType: 'public-holiday',
+        isBillable: false,
+      },
     });
 
     expect(component.projects()[0].tasks[0].payType).toBe('public-holiday');
+    expect(component.projects()[0].tasks[0].isBillable).toBe(false);
     expect(component.projects()[0].newTaskPayType).toBe('hourly');
+    expect(component.projects()[0].newTaskIsBillable).toBe(true);
   });
 
   it('closes color, project, and task popups after clicking outside them', () => {
@@ -314,11 +348,13 @@ describe('Projects', () => {
       name,
       projectId: 'p1',
       payType: 'hourly' as const,
+      isBillable: true,
       createdAt: '',
       updatedAt: '',
       editingDetails: false,
       editedName: name,
       editedPayType: 'hourly' as const,
+      editedIsBillable: true,
       detailsError: null,
     };
   }
@@ -337,6 +373,7 @@ describe('Projects', () => {
       tasks: [] as Array<ReturnType<typeof makeTask>>,
       newTaskName: '',
       newTaskPayType: 'hourly' as const,
+      newTaskIsBillable: true,
       taskError: null,
       colorError: null,
       archiveError: null,

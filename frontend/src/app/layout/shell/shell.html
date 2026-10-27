@@ -26,6 +26,9 @@
           <div class="account-menu-panel" role="menu">
             <a routerLink="/profile" role="menuitem" (click)="closeAccountMenu()">My account</a>
             @if (isAdmin()) {
+              <a routerLink="/notifications" role="menuitem" (click)="closeAccountMenu()"
+                >Notifications</a
+              >
               <a routerLink="/users" role="menuitem" (click)="closeAccountMenu()">Manage users</a>
             }
             <button type="button" role="menuitem" (click)="logout()">Log out</button>

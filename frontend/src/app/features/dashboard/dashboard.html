@@ -112,7 +112,7 @@
       </select>
       <select
         [ngModel]="manualEntry()?.taskId"
-        (ngModelChange)="updateManualEntry({ taskId: $event })"
+        (ngModelChange)="onManualTaskChange($event)"
         [disabled]="!manualEntry()?.projectId || manualTasks().length === 0"
         aria-label="Task for manual time entry"
       >
@@ -196,30 +196,29 @@
   <p class="error-text" role="alert">{{ error }}</p>
 }
 
+@if (reminderErrorMessage(); as error) {
+  <p class="error-text" role="alert">{{ error }}</p>
+}
+@if (activeReminders().length > 0) {
+  <section class="dashboard-reminders" aria-label="Team reminders">
+    <h2>Reminder</h2>
+    @for (reminder of activeReminders(); track reminder.id) {
+      <p>{{ reminder.text }}</p>
+    }
+  </section>
+}
+
 <div class="entry-history-header">
-  <h2>Recent entries</h2>
-  <nav class="week-pagination" aria-label="Time tracker week">
-    <button
-      class="btn btn-secondary"
-      type="button"
-      aria-label="Previous week"
-      (click)="showPreviousWeek()"
-    >
-      Previous week
-    </button>
-    <span role="status">
-      {{ weekStart() | date: 'MMM d' }}–{{ weekEnd() | date: 'MMM d, y' }}
-    </span>
-    <button
-      class="btn btn-secondary"
-      type="button"
-      aria-label="Next week"
-      [disabled]="!canGoToNextWeek()"
-      (click)="showNextWeek()"
-    >
-      Next week
-    </button>
-  </nav>
+  <h2>
+    Entries from
+    <span class="entry-history-date">{{ weekStart() | date: 'MMM d, y' }}</span>
+    to
+    <span class="entry-history-date">{{ weekEnd() | date: 'MMM d, y' }}</span>
+  </h2>
+  <div class="week-total-inline" aria-label="Total time for shown week">
+    <span>Total time</span>
+    <strong>{{ formatDurationSeconds(weekTotalDurationSeconds()) }}</strong>
+  </div>
 </div>
 @if (timeEntries().length === 0) {
   <div class="card"><p>No time entries yet. Start your first timer above.</p></div>
@@ -235,10 +234,7 @@
         </header>
         <div class="day-entry-list">
           @for (entry of day.entries; track entry.id) {
-            <div
-              class="time-entry-item"
-              [class.is-editing]="editingEntry()?.id === entry.id"
-            >
+            <div class="time-entry-item" [class.is-editing]="editingEntry()?.id === entry.id">
               <button
                 class="entry-play-button"
                 type="button"
@@ -395,7 +391,11 @@
                     </button>
                   </div>
                   @if (entryPendingRemovalId() === entry.id) {
-                    <div class="entry-removal-confirmation" role="group" aria-label="Confirm time entry removal">
+                    <div
+                      class="entry-removal-confirmation"
+                      role="group"
+                      aria-label="Confirm time entry removal"
+                    >
                       <p>Remove this time entry? This cannot be undone.</p>
                       <button
                         class="btn btn-danger"
@@ -424,3 +424,22 @@
     }
   </div>
 }
+<nav class="week-pagination" aria-label="Time tracker week">
+  <button
+    class="btn btn-secondary"
+    type="button"
+    aria-label="Previous week"
+    (click)="showPreviousWeek()"
+  >
+    Previous week
+  </button>
+  <button
+    class="btn btn-secondary"
+    type="button"
+    aria-label="Next week"
+    [disabled]="!canGoToNextWeek()"
+    (click)="showNextWeek()"
+  >
+    Next week
+  </button>
+</nav>

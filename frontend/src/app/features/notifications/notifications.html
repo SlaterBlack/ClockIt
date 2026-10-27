@@ -1,0 +1,432 @@
+<h1>Notifications</h1>
+<p class="notifications-intro">
+  Configure automated report timing, workbook contents, and email recipients.
+</p>
+
+<section class="card scheduled-report" aria-label="Scheduled report email settings">
+  <div class="report-section-heading">
+    <div>
+      <h2>Scheduled report email</h2>
+      <p>Automatically email the two-sheet workbook to selected ClockIt accounts.</p>
+    </div>
+    @if (!isLoading()) {
+      <span class="schedule-status" [class.is-enabled]="config().enabled">
+        {{ config().enabled ? 'Enabled' : 'Disabled' }}
+      </span>
+    }
+  </div>
+
+  @if (isLoading()) {
+    <p class="report-empty" role="status">Loading email settings…</p>
+  } @else {
+    @if (!smtpConfigured()) {
+      <p class="schedule-notice">
+        Email delivery is not ready. Configure the SMTP_* settings in StoreIt’s backend
+        <code>.env</code> file and restart StoreIt before enabling this schedule.
+      </p>
+    }
+    @if (latestDelivery(); as delivery) {
+      @if (delivery.status === 'failed') {
+        <p class="error-text" role="alert">
+          The last report email for the period starting {{ delivery.periodStart }} failed:
+          {{ delivery.errorMessage || 'Check StoreIt’s service logs for details.' }}
+        </p>
+      } @else if (delivery.status === 'sent' && delivery.sentAt) {
+        <p class="schedule-notice" role="status">
+          Last report email sent {{ delivery.sentAt | date: 'medium' }} for the period starting
+          {{ delivery.periodStart }}.
+        </p>
+      }
+    }
+
+    <div class="schedule-fields">
+      <label>
+        First day of the reporting schedule
+        <input
+          type="date"
+          aria-label="First day of the reporting schedule"
+          [ngModel]="config().startDate ?? ''"
+          (ngModelChange)="updateConfig({ startDate: $event || null })"
+        />
+        <small
+          >Each report period starts from this date, then advances by the selected interval.</small
+        >
+      </label>
+      <label>
+        Send report every
+        <div class="frequency-input">
+          <input
+            type="number"
+            min="1"
+            [max]="config().frequencyUnit === 'weeks' ? 52 : 366"
+            aria-label="Report recurrence interval"
+            [ngModel]="config().frequencyInterval"
+            (ngModelChange)="updateFrequencyInterval($event)"
+          />
+          <select
+            aria-label="Report recurrence unit"
+            [ngModel]="config().frequencyUnit"
+            (ngModelChange)="updateConfig({ frequencyUnit: $event })"
+          >
+            @for (unit of frequencyUnits; track unit.value) {
+              <option [ngValue]="unit.value">{{ unit.label }}</option>
+            }
+          </select>
+        </div>
+      </label>
+      <label>
+        Report covers (days)
+        <input
+          type="number"
+          min="1"
+          max="366"
+          aria-label="Report period length in days"
+          [ngModel]="config().reportPeriodDays"
+          (ngModelChange)="updateReportPeriodDays($event)"
+        />
+        <small>Can differ from the recurrence interval.</small>
+      </label>
+      <label>
+        Send day
+        <select
+          aria-label="Scheduled report send day"
+          [ngModel]="config().sendWeekday"
+          (ngModelChange)="updateConfig({ sendWeekday: +$event })"
+        >
+          @for (day of weekdays; track day.value) {
+            <option [ngValue]="day.value">{{ day.label }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        Send time
+        <input
+          type="time"
+          aria-label="Scheduled report send time"
+          [ngModel]="config().sendTime"
+          (ngModelChange)="updateConfig({ sendTime: $event })"
+        />
+      </label>
+      <label>
+        Time zone (IANA)
+        <input
+          type="text"
+          aria-label="Scheduled report time zone"
+          [ngModel]="config().timezone"
+          (ngModelChange)="updateConfig({ timezone: $event })"
+        />
+      </label>
+    </div>
+
+    <fieldset class="schedule-recipients">
+      <legend>Users included in the workbook</legend>
+      <label class="include-all-users">
+        <input
+          type="checkbox"
+          [checked]="config().includeAllUsers"
+          (change)="onIncludeAllUsersChange($event)"
+        />
+        <span>Include all users</span>
+      </label>
+      @if (!config().includeAllUsers) {
+        @if (users().length === 0) {
+          <p class="report-empty">There are no user accounts to select.</p>
+        } @else {
+          <div class="recipient-list">
+            @for (user of users(); track user.id) {
+              <label>
+                <input
+                  type="checkbox"
+                  [checked]="config().includedUserIds.includes(user.id)"
+                  (change)="onIncludedUserChange(user.id, $event)"
+                />
+                <span
+                  >{{ user.name }} <small>{{ user.email }}</small></span
+                >
+                @if (user.role === 'admin') {
+                  <span class="recipient-role">Admin</span>
+                }
+              </label>
+            }
+          </div>
+        }
+      }
+    </fieldset>
+
+    <fieldset class="schedule-recipients">
+      <legend>Email recipients</legend>
+      @if (users().length === 0) {
+        <p class="report-empty">There are no user accounts to select.</p>
+      } @else {
+        <div class="recipient-list">
+          @for (user of users(); track user.id) {
+            <label>
+              <input
+                type="checkbox"
+                [checked]="config().recipientUserIds.includes(user.id)"
+                (change)="onRecipientChange(user.id, $event)"
+              />
+              <span
+                >{{ user.name }} <small>{{ user.email }}</small></span
+              >
+              @if (user.role === 'admin') {
+                <span class="recipient-role">Admin</span>
+              }
+            </label>
+          }
+        </div>
+      }
+    </fieldset>
+
+    <label class="schedule-toggle">
+      <input type="checkbox" [checked]="config().enabled" (change)="onEnabledChange($event)" />
+      <span>Enable automatic report emails</span>
+    </label>
+
+    <p class="schedule-notice">
+      A report period starts on the configured start date and repeats every
+      {{ config().frequencyInterval }} {{ config().frequencyUnit }}. Each workbook includes
+      {{ config().reportPeriodDays }} calendar days from that period start. Emails are sent at the
+      configured time on the first selected send day after the report period closes.
+    </p>
+
+    @if (errorMessage(); as error) {
+      <p class="error-text" role="alert">{{ error }}</p>
+    }
+    @if (statusMessage(); as status) {
+      <p class="import-success" role="status">{{ status }}</p>
+    }
+
+    <div class="schedule-actions">
+      <button
+        class="btn btn-primary"
+        type="button"
+        [disabled]="isSaving()"
+        (click)="saveSettings()"
+      >
+        {{ isSaving() ? 'Saving…' : 'Save settings' }}
+      </button>
+      <button
+        class="btn btn-secondary"
+        type="button"
+        [disabled]="
+          isSendingTest() ||
+          !smtpConfigured() ||
+          !config().startDate ||
+          !config().recipientUserIds.length
+        "
+        (click)="sendTest()"
+      >
+        {{ isSendingTest() ? 'Sending…' : 'Send test workbook' }}
+      </button>
+    </div>
+  }
+</section>
+
+<section class="card dashboard-reminder-settings" aria-label="Dashboard reminders">
+  <div class="report-section-heading">
+    <div>
+      <h2>Time Tracker reminders</h2>
+      <p>Show recurring reminders on the Time Tracker during selected days and times.</p>
+    </div>
+  </div>
+
+  @if (remindersLoading()) {
+    <p class="report-empty" role="status">Loading dashboard reminders…</p>
+  } @else {
+    @if (reminderCompatibilityWarning(); as warning) {
+      <p class="schedule-notice" role="alert">{{ warning }}</p>
+    }
+
+    @if (reminders().length > 0) {
+      <div class="dashboard-reminder-list">
+        @for (reminder of reminders(); track reminder.id) {
+          <article class="dashboard-reminder-item">
+            <div class="dashboard-reminder-copy">
+              <p>{{ reminder.text }}</p>
+              <small>{{ formatReminderSchedule(reminder) }}</small>
+            </div>
+            <span class="schedule-status" [class.is-enabled]="reminder.enabled">
+              {{ reminder.enabled ? 'Enabled' : 'Disabled' }}
+            </span>
+            <div class="dashboard-reminder-actions">
+              <button
+                class="btn btn-secondary"
+                type="button"
+                [disabled]="isSavingReminder() || !!deletingReminderId()"
+                (click)="editReminder(reminder)"
+              >
+                Edit
+              </button>
+              <button
+                class="btn btn-danger"
+                type="button"
+                [disabled]="isSavingReminder() || !!deletingReminderId()"
+                (click)="deleteReminder(reminder)"
+              >
+                {{ deletingReminderId() === reminder.id ? 'Deleting…' : 'Delete' }}
+              </button>
+            </div>
+          </article>
+        }
+      </div>
+    } @else {
+      <p class="report-empty">No dashboard reminders have been configured.</p>
+    }
+
+    <form class="dashboard-reminder-form" (submit)="$event.preventDefault(); saveReminder()">
+      <h3>{{ editingReminderId() ? 'Edit reminder' : 'Create reminder' }}</h3>
+      <label class="reminder-text-field">
+        Reminder text
+        <textarea
+          maxlength="500"
+          rows="3"
+          required
+          aria-label="Reminder text"
+          [ngModel]="reminderDraft().text"
+          (ngModelChange)="updateReminderDraft({ text: $event })"
+          name="reminderText"
+        ></textarea>
+      </label>
+
+      <div class="schedule-fields reminder-recurrence-fields">
+        <label>
+          Start date
+          <input
+            type="date"
+            required
+            aria-label="Reminder start date"
+            [ngModel]="reminderDraft().startDate"
+            (ngModelChange)="updateReminderDraft({ startDate: $event })"
+            name="reminderStartDate"
+          />
+          <small>Anchors the repeat cycle.</small>
+        </label>
+        <label>
+          Repeat every
+          <div class="frequency-input">
+            <input
+              type="number"
+              min="1"
+              [max]="reminderDraft().frequencyUnit === 'weeks' ? 52 : 366"
+              aria-label="Reminder recurrence interval"
+              [ngModel]="reminderDraft().frequencyInterval"
+              (ngModelChange)="updateReminderFrequencyInterval($event)"
+              name="reminderFrequencyInterval"
+            />
+            <select
+              aria-label="Reminder recurrence unit"
+              [ngModel]="reminderDraft().frequencyUnit"
+              (ngModelChange)="updateReminderFrequencyUnit($event)"
+              name="reminderFrequencyUnit"
+            >
+              @for (unit of reminderFrequencyUnits; track unit.value) {
+                <option [ngValue]="unit.value">{{ unit.label }}</option>
+              }
+            </select>
+          </div>
+        </label>
+      </div>
+
+      @if (reminderDraft().frequencyUnit === 'weeks') {
+        <fieldset class="reminder-weekdays">
+          <legend>Repeat on</legend>
+          @for (day of weekdays; track day.value) {
+            <label>
+              <input
+                type="checkbox"
+                [checked]="reminderDraft().weekdays.includes(day.value)"
+                (change)="onReminderWeekdayChange(day.value, $event)"
+              />
+              <span>{{ day.label }}</span>
+            </label>
+          }
+        </fieldset>
+      } @else {
+        <p class="schedule-notice">
+          This reminder repeats every {{ reminderDraft().frequencyInterval }} calendar
+          {{ reminderDraft().frequencyInterval === 1 ? 'day' : 'days' }} from the start date.
+        </p>
+      }
+
+      <div class="reminder-time-fields">
+        <label>
+          Start time
+          <input
+            type="time"
+            required
+            aria-label="Reminder start time"
+            [ngModel]="reminderDraft().startTime"
+            (ngModelChange)="updateReminderDraft({ startTime: $event })"
+            name="reminderStartTime"
+          />
+        </label>
+        <label>
+          End time
+          <input
+            type="time"
+            required
+            aria-label="Reminder end time"
+            [ngModel]="reminderDraft().endTime"
+            (ngModelChange)="updateReminderDraft({ endTime: $event })"
+            name="reminderEndTime"
+          />
+        </label>
+        <label>
+          Time zone (IANA)
+          <input
+            type="text"
+            required
+            maxlength="64"
+            aria-label="Reminder time zone"
+            [ngModel]="reminderDraft().timezone"
+            (ngModelChange)="updateReminderDraft({ timezone: $event })"
+            name="reminderTimezone"
+          />
+        </label>
+      </div>
+
+      <label class="schedule-toggle">
+        <input
+          type="checkbox"
+          [checked]="reminderDraft().enabled"
+          (change)="onReminderEnabledChange($event)"
+        />
+        <span>Enable this reminder</span>
+      </label>
+
+      @if (reminderErrorMessage(); as error) {
+        <p class="error-text" role="alert">{{ error }}</p>
+      }
+      @if (reminderStatusMessage(); as status) {
+        <p class="import-success" role="status">{{ status }}</p>
+      }
+
+      <div class="schedule-actions">
+        <button
+          class="btn btn-primary"
+          type="submit"
+          [disabled]="isSavingReminder() || !!deletingReminderId()"
+        >
+          {{
+            isSavingReminder()
+              ? 'Saving…'
+              : editingReminderId()
+                ? 'Save changes'
+                : 'Create reminder'
+          }}
+        </button>
+        @if (editingReminderId()) {
+          <button
+            class="btn btn-secondary"
+            type="button"
+            [disabled]="isSavingReminder()"
+            (click)="cancelReminderEdit()"
+          >
+            Cancel
+          </button>
+        }
+      </div>
+    </form>
+  }
+</section>

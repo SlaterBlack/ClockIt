@@ -216,6 +216,15 @@
                             </option>
                           }
                         </select>
+                        <label class="task-billable-default">
+                          <input
+                            type="checkbox"
+                            [attr.aria-label]="'Billable by default for task ' + task.name"
+                            [ngModel]="task.editedIsBillable"
+                            (ngModelChange)="setEditedTaskIsBillable(project.id, task.id, $event)"
+                          />
+                          Billable by default
+                        </label>
                         <button
                           class="btn btn-primary"
                           type="button"
@@ -233,7 +242,10 @@
                       </div>
                     } @else {
                       <span class="task-name">{{ task.name }}</span>
-                      <span class="task-pay-type">{{ payTypeLabel(task.payType) }}</span>
+                      <span class="task-summary">
+                        {{ payTypeLabel(task.payType) }} |
+                        {{ task.isBillable ? 'Billable' : 'Non-billable' }}
+                      </span>
                       <div class="task-options">
                         <button
                           class="project-options-trigger task-options-trigger btn btn-secondary"
@@ -298,6 +310,15 @@
                       </option>
                     }
                   </select>
+                  <label class="task-billable-default">
+                    <input
+                      type="checkbox"
+                      [attr.aria-label]="'Billable by default for new task in ' + project.name"
+                      [ngModel]="project.newTaskIsBillable"
+                      (ngModelChange)="setNewTaskIsBillable(project.id, $event)"
+                    />
+                    Billable by default
+                  </label>
                   <button class="btn btn-primary" type="button" (click)="createTask(project.id)">
                     Add task
                   </button>

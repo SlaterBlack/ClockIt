@@ -23,6 +23,9 @@ describe('Dashboard', () => {
       .expectOne((request) => request.url.endsWith('/time-entries'))
       .flush({ timeEntries: [] });
     httpMock.expectOne((request) => request.url.endsWith('/workspaces')).flush({ workspaces: [] });
+    httpMock
+      .expectOne((request) => request.url.endsWith('/reminders/active'))
+      .flush({ reminders: [] });
   });
 
   afterEach(() => {
@@ -31,6 +34,21 @@ describe('Dashboard', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('shows active team reminders before recent entries', () => {
+    component.activeReminders.set([{ id: 'r1', text: 'Please finalise your timesheet.' }]);
+    fixture.detectChanges();
+
+    const reminderPanel = fixture.nativeElement.querySelector('.dashboard-reminders');
+    const historyHeader = fixture.nativeElement.querySelector('.entry-history-header');
+    expect(reminderPanel.querySelector('h2').textContent.trim()).toBe('Reminder');
+    expect(reminderPanel.textContent).toContain('Please finalise your timesheet.');
+    expect(
+      Boolean(
+        reminderPanel.compareDocumentPosition(historyHeader) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
   });
 
   it('paginates time entries by week and prevents navigating into future weeks', () => {
@@ -74,6 +92,9 @@ describe('Dashboard', () => {
     expect(fixture.nativeElement.querySelector('.entry-project-task').textContent).toContain(
       'Current week',
     );
+    expect(fixture.nativeElement.querySelector('.week-total-inline strong').textContent.trim()).toBe(
+      '1h 0m',
+    );
     expect(
       (fixture.nativeElement.querySelector('[aria-label="Next week"]') as HTMLButtonElement)
         .disabled,
@@ -86,10 +107,76 @@ describe('Dashboard', () => {
     expect(fixture.nativeElement.querySelector('.entry-project-task').textContent).toContain(
       'Previous week',
     );
+    expect(fixture.nativeElement.querySelector('.week-total-inline strong').textContent.trim()).toBe(
+      '1h 0m',
+    );
+    const entryDays = fixture.nativeElement.querySelector('.entry-days');
+    const pagination = fixture.nativeElement.querySelector('.week-pagination');
+    expect(entryDays.nextElementSibling).toBe(pagination);
+    expect(fixture.nativeElement.querySelector('.entry-history-header h2').textContent).toContain(
+      'Entries from',
+    );
+    expect(fixture.nativeElement.querySelectorAll('.entry-history-date')).toHaveLength(2);
     expect(
       (fixture.nativeElement.querySelector('[aria-label="Next week"]') as HTMLButtonElement)
         .disabled,
     ).toBe(false);
+  });
+
+  it('shows the selected week total and updates it while a timer is running', () => {
+    const weekStart = new Date(component.weekStart());
+    const now = new Date(weekStart);
+    now.setDate(now.getDate() + 3);
+    now.setHours(12, 0, 0, 0);
+    component.clockNow.set(now.getTime());
+
+    const completedStart = new Date(weekStart);
+    completedStart.setHours(9, 0, 0, 0);
+    const completedEnd = new Date(completedStart.getTime() + 3600_000);
+    const runningStart = new Date(now.getTime() - 30 * 60_000);
+    const entry = {
+      description: 'Weekly work',
+      isBillable: true,
+      userId: 'u1',
+      projectId: 'p1',
+      taskId: 't1',
+      project: null,
+      task: null,
+      createdAt: '',
+      updatedAt: '',
+    };
+    component.timeEntries.set([
+      {
+        ...entry,
+        id: 'completed',
+        startTime: completedStart.toISOString(),
+        endTime: completedEnd.toISOString(),
+        durationSeconds: 3600,
+      },
+      {
+        ...entry,
+        id: 'running',
+        startTime: runningStart.toISOString(),
+        endTime: null,
+        durationSeconds: null,
+      },
+    ]);
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelector('.week-total-inline strong').textContent.trim(),
+    ).toBe(
+      '1h 30m',
+    );
+
+    component.clockNow.set(now.getTime() + 60_000);
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelector('.week-total-inline strong').textContent.trim(),
+    ).toBe(
+      '1h 31m',
+    );
   });
 
   it('does not start a timer without a task', () => {
@@ -184,6 +271,32 @@ describe('Dashboard', () => {
     expect(component.isSavingManualEntry()).toBe(false);
   });
 
+  it('defaults manual entry billability from the selected task and allows an override', () => {
+    component.openManualEntry();
+    component.onManualProjectChange('p1');
+    httpMock
+      .expectOne((request) => request.url.endsWith('/projects/p1/tasks'))
+      .flush({
+        tasks: [
+          {
+            id: 't1',
+            name: 'Admin',
+            projectId: 'p1',
+            payType: 'hourly',
+            isBillable: false,
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+      });
+
+    component.onManualTaskChange('t1');
+    expect(component.manualEntry()?.isBillable).toBe(false);
+
+    component.updateManualEntry({ isBillable: true });
+    expect(component.manualEntry()?.isBillable).toBe(true);
+  });
+
   it('uses the edit form date and typed-time controls for manual entries', () => {
     component.openManualEntry();
     component.updateManualEntry({
@@ -203,7 +316,9 @@ describe('Dashboard', () => {
     expect(dateTimeFields.querySelectorAll('.stacked-label-picker')).toHaveLength(3);
     expect(dateTimeFields.querySelectorAll('.manual-time-input[type="text"]')).toHaveLength(2);
     expect(dateTimeFields.querySelector('.clear-manual-time')).not.toBeNull();
-    expect(dateTimeFields.querySelector('.entry-duration-preview strong').textContent).toBe('1h 0m');
+    expect(dateTimeFields.querySelector('.entry-duration-preview strong').textContent).toBe(
+      '1h 0m',
+    );
 
     const endTimeInput = dateTimeFields
       .querySelectorAll('app-date-time-picker')[2]

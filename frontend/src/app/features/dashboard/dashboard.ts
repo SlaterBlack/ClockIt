@@ -10,6 +10,8 @@ import { Workspace as WorkspaceService } from '../../core/services/workspace';
 import type { Project as ProjectDto } from '../../core/models/project.model';
 import type { Task as TaskDto } from '../../core/models/task.model';
 import type { TimeEntry as TimeEntryDto } from '../../core/models/time-entry.model';
+import type { ActiveDashboardReminder } from '../../core/models/dashboard-reminder.model';
+import { DashboardReminders } from '../../core/services/dashboard-reminders';
 import { DateTimePicker } from './date-time-picker';
 
 interface TimeEntryEdit {
@@ -58,6 +60,7 @@ export class Dashboard implements OnInit {
   private readonly workspaceService = inject(WorkspaceService);
   private readonly projectService = inject(ProjectService);
   private readonly taskService = inject(TaskService);
+  private readonly dashboardReminders = inject(DashboardReminders);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly description = signal('');
@@ -105,6 +108,9 @@ export class Dashboard implements OnInit {
     end.setDate(end.getDate() + 7);
     return this.entryDays().filter((day) => day.date >= start && day.date < end);
   });
+  readonly weekTotalDurationSeconds = computed(() =>
+    this.weekEntryDays().reduce((total, day) => total + day.totalDurationSeconds, 0),
+  );
   readonly runningEntry = signal<TimeEntryDto | null>(null);
   readonly runningTimerEdit = signal<RunningTimerEdit | null>(null);
   readonly runningTasks = signal<TaskDto[]>([]);
@@ -113,6 +119,8 @@ export class Dashboard implements OnInit {
   readonly selectedProjectId = signal('');
   readonly selectedTaskId = signal('');
   readonly errorMessage = signal<string | null>(null);
+  readonly activeReminders = signal<ActiveDashboardReminder[]>([]);
+  readonly reminderErrorMessage = signal<string | null>(null);
   readonly isSubmitting = signal(false);
   readonly editingEntry = signal<TimeEntryEdit | null>(null);
   readonly editingDateTimeValue = computed(() => {
@@ -136,9 +144,7 @@ export class Dashboard implements OnInit {
   });
   readonly manualEntryDuration = computed(() => {
     const draft = this.manualEntry();
-    return draft
-      ? this.durationPreview(draft.date, draft.startTime, draft.endTime, false)
-      : '—';
+    return draft ? this.durationPreview(draft.date, draft.startTime, draft.endTime, false) : '—';
   });
   readonly manualTasks = signal<TaskDto[]>([]);
   readonly manualEntryError = signal<string | null>(null);
@@ -175,6 +181,10 @@ export class Dashboard implements OnInit {
   ngOnInit(): void {
     this.refresh();
     this.loadProjects();
+    this.refreshActiveReminders();
+    interval(60_000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.refreshActiveReminders());
     interval(1_000)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.clockNow.set(Date.now()));
@@ -232,7 +242,9 @@ export class Dashboard implements OnInit {
 
     const draft = this.runningTimerEdit();
     if (!draft?.taskId || !draft.projectId || !draft.startTime) {
-      this.errorMessage.set('Select a project and task and enter a valid start time before switching timers.');
+      this.errorMessage.set(
+        'Select a project and task and enter a valid start time before switching timers.',
+      );
       return;
     }
     const start = this.getRunningStartTime(draft);
@@ -249,7 +261,9 @@ export class Dashboard implements OnInit {
         next: () => this.startEntryTimer(entry, true),
         error: () => {
           this.isSubmitting.set(false);
-          this.errorMessage.set('Could not save the running timer. The selected entry was not started.');
+          this.errorMessage.set(
+            'Could not save the running timer. The selected entry was not started.',
+          );
         },
       });
   }
@@ -263,24 +277,26 @@ export class Dashboard implements OnInit {
 
     this.isSubmitting.set(true);
     this.errorMessage.set(null);
-    this.timeEntryService.start({ taskId: entry.taskId, description: entry.description }).subscribe({
-      next: () => {
-        this.description.set('');
-        this.selectedTaskId.set('');
-        this.selectedProjectId.set('');
-        this.tasks.set([]);
-        this.isSubmitting.set(false);
-        this.refresh();
-      },
-      error: () => {
-        this.isSubmitting.set(false);
-        this.errorMessage.set(
-          previousTimerSaved
-            ? 'The running timer was saved, but the selected entry could not be started.'
-            : 'Could not start the selected entry. Check its project and task, then try again.',
-        );
-      },
-    });
+    this.timeEntryService
+      .start({ taskId: entry.taskId, description: entry.description })
+      .subscribe({
+        next: () => {
+          this.description.set('');
+          this.selectedTaskId.set('');
+          this.selectedProjectId.set('');
+          this.tasks.set([]);
+          this.isSubmitting.set(false);
+          this.refresh();
+        },
+        error: () => {
+          this.isSubmitting.set(false);
+          this.errorMessage.set(
+            previousTimerSaved
+              ? 'The running timer was saved, but the selected entry could not be started.'
+              : 'Could not start the selected entry. Check its project and task, then try again.',
+          );
+        },
+      });
   }
 
   openManualEntry(): void {
@@ -342,6 +358,14 @@ export class Dashboard implements OnInit {
         error: () => this.manualEntryError.set('Could not load tasks for this project.'),
       });
     }
+  }
+
+  onManualTaskChange(taskId: string): void {
+    const task = this.manualTasks().find((item) => item.id === taskId);
+    this.updateManualEntry({
+      taskId,
+      isBillable: task?.isBillable ?? true,
+    });
   }
 
   saveManualEntry(): void {
@@ -672,6 +696,18 @@ export class Dashboard implements OnInit {
         this.loadRunningTasks(running?.projectId ?? '');
       },
       error: () => this.errorMessage.set('Could not load time entries. Try refreshing the page.'),
+    });
+  }
+
+  private refreshActiveReminders(): void {
+    this.dashboardReminders.listActive().subscribe({
+      next: ({ reminders }) => {
+        this.activeReminders.set(reminders);
+        this.reminderErrorMessage.set(null);
+      },
+      error: () => {
+        this.reminderErrorMessage.set('Could not load team reminders. Try refreshing the page.');
+      },
     });
   }
 

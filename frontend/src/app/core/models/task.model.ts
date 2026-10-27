@@ -5,6 +5,7 @@ export interface Task {
   name: string;
   projectId: string;
   payType: PayType;
+  isBillable: boolean;
   createdAt: string;
   updatedAt: string;
 }

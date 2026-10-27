@@ -16,10 +16,16 @@ export class Task {
     return this.http.get<{ tasks: TaskDto[] }>(`${this.apiUrl}/${projectId}/tasks`);
   }
 
-  create(projectId: string, name: string, payType: PayType): Observable<{ task: TaskDto }> {
+  create(
+    projectId: string,
+    name: string,
+    payType: PayType,
+    isBillable: boolean,
+  ): Observable<{ task: TaskDto }> {
     return this.http.post<{ task: TaskDto }>(`${this.apiUrl}/${projectId}/tasks`, {
       name,
       payType,
+      isBillable,
     });
   }
 
@@ -28,10 +34,12 @@ export class Task {
     taskId: string,
     name: string,
     payType: PayType,
+    isBillable: boolean,
   ): Observable<{ task: TaskDto }> {
     return this.http.patch<{ task: TaskDto }>(`${this.apiUrl}/${projectId}/tasks/${taskId}`, {
       name,
       payType,
+      isBillable,
     });
   }
 

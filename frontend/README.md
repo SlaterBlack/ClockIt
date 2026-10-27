@@ -33,6 +33,24 @@ To keep the UI uniform without a component library, build new pages with the cla
 
 In development the app calls the API at the relative path `/api` (see `src/environments/environment.development.ts`). The Angular dev server forwards requests through `proxy.conf.js` to the `STOREIT_API_URL` in `frontend/.env`; copy `.env.example` to `.env` to configure the address. Update `environment.ts` for the production API URL.
 
+### HTTPS on the production server
+
+Caddy terminates public HTTPS on port 2400 and reverse-proxies to the ClockIt
+Express server on `127.0.0.1:2401`. ClockIt continues to proxy `/api` requests
+to StoreIt at `127.0.0.1:4002`, so StoreIt does not need a public route. The
+router's existing port-2400 forward should point to Caddy. Use
+`https://clockit.ai3d.com.au:2400/`; this setup does not use port 80 or require
+port 443.
+
+For this layout, set `FRONTEND_HOST=127.0.0.1` and `FRONTEND_PORT=2401` in
+`frontend/.env`, and keep `STOREIT_API_URL=http://127.0.0.1:4002`. Leave
+`TLS_CERT_PATH` and `TLS_KEY_PATH` unset because Caddy owns the public TLS
+connection.
+
+Certificate renewal uses acme.sh with DNS validation delegated by the
+`_acme-challenge.clockit.ai3d.com.au` CNAME. Keep that CNAME in Webcentral DNS;
+acme.sh updates the delegated challenge and reloads Caddy when renewing.
+
 The Reports page supports date presets/custom dates, project, task, billable status, and user filters, summary totals, a project breakdown, and a detailed entry table. Its default is the signed-in user's entries; selecting all users includes every registered user's entries in this app.
 
 There is no public registration page. Click your username in the navigation bar to open account actions and edit your own name, email or password. Admins also have a Manage users action where they create accounts, change other users' roles/passwords, and delete accounts (an admin can't delete or demote the last remaining admin).

@@ -34,6 +34,12 @@ export const routes: Routes = [
         canActivate: [adminGuard],
         loadComponent: () => import('./features/users/users').then((m) => m.Users),
       },
+      {
+        path: 'notifications',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/notifications/notifications').then((m) => m.Notifications),
+      },
     ],
   },
   { path: '**', redirectTo: 'dashboard' },
