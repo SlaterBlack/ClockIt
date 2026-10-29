@@ -1,5 +1,9 @@
 <div class="auth-page">
   <form class="card auth-card" [formGroup]="form" (ngSubmit)="submit()">
+    <a class="auth-brand" routerLink="/dashboard" aria-label="ClockIt home">
+      <img src="/ClockItLogo_32x32.png" width="32" height="32" alt="">
+      <span>ClockIt</span>
+    </a>
     <h2>Log in</h2>
 
     <div class="form-field">

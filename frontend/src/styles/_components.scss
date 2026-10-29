@@ -147,6 +147,7 @@
     letter-spacing: -0.035em;
     font-weight: 700;
     color: var(--color-primary);
+    text-decoration: none;
 
     .navbar-brand-word {
       white-space: nowrap;
@@ -156,13 +157,11 @@
       color: var(--color-accent);
     }
 
-    &::before {
-      width: 10px;
-      height: 10px;
-      border-radius: 3px;
-      background: var(--color-accent);
-      box-shadow: 0 0 0 4px var(--color-primary-light);
-      content: '';
+    img {
+      display: block;
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
     }
   }
 

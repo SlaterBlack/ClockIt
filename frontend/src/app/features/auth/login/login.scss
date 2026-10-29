@@ -8,3 +8,21 @@
   width: 100%;
   max-width: 360px;
 }
+
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  color: var(--color-primary);
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-decoration: none;
+
+  img {
+    display: block;
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+  }
+}
