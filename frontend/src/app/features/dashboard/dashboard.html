@@ -286,7 +286,7 @@
                 </div>
               </article>
               @if (editingEntry()?.id === entry.id) {
-                <div class="entry-edit-form">
+                <div class="entry-edit-form" (focusout)="onEntryEditFocusOut($event)">
                   <div class="entry-edit-fields">
                     <select
                       [ngModel]="editingEntry()?.projectId"
@@ -369,20 +369,18 @@
                   @if (editingError(); as error) {
                     <p class="error-text" role="alert">{{ error }}</p>
                   }
+                  <p class="entry-save-status" role="status">
+                    @if (savingEntryId() === entry.id) {
+                      Saving changes…
+                    } @else if (entrySaveStatus() === 'saved') {
+                      Changes saved
+                    } @else {
+                      Changes save automatically
+                    }
+                  </p>
                   <div class="entry-edit-actions">
                     <button
-                      class="btn btn-primary"
-                      type="button"
-                      [disabled]="isSavingEntry()"
-                      (click)="saveEntryEdit()"
-                    >
-                      Save changes
-                    </button>
-                    <button class="btn btn-secondary" type="button" (click)="cancelEntryEdit()">
-                      Cancel
-                    </button>
-                    <button
-                      class="btn btn-secondary"
+                      class="btn btn-danger"
                       type="button"
                       [disabled]="isSavingEntry() || isRemovingEntry()"
                       (click)="requestEntryRemoval(entry)"
@@ -400,7 +398,7 @@
                       <button
                         class="btn btn-danger"
                         type="button"
-                        [disabled]="isRemovingEntry()"
+                        [disabled]="isRemovingEntry() || isSavingEntry()"
                         (click)="removeEntry(entry)"
                       >
                         {{ isRemovingEntry() ? 'Removing…' : 'Remove entry' }}
@@ -408,7 +406,7 @@
                       <button
                         class="btn btn-secondary"
                         type="button"
-                        [disabled]="isRemovingEntry()"
+                        [disabled]="isRemovingEntry() || isSavingEntry()"
                         (click)="cancelEntryRemoval()"
                       >
                         Keep entry

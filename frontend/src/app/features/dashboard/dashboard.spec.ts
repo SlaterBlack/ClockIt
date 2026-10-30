@@ -666,6 +666,67 @@ describe('Dashboard', () => {
     httpMock.expectNone((request) => request.method === 'PATCH');
   });
 
+  it('automatically saves edited fields and keeps the editor open', async () => {
+    const project = {
+      id: 'p1',
+      name: 'Sydney Opera House',
+      projectNumber: '364',
+      color: '#2D6A4F',
+      isBillable: true,
+      workspaceId: 'w1',
+      archived: false,
+      createdAt: '',
+      updatedAt: '',
+    };
+    const task = { id: 't1', name: 'Design', projectId: 'p1', createdAt: '', updatedAt: '' };
+    const entry = {
+      id: 'e1',
+      description: 'Drafting',
+      startTime: '2026-10-18T09:00:00.000Z',
+      endTime: '2026-10-18T10:00:00.000Z',
+      durationSeconds: 3600,
+      isBillable: true,
+      userId: 'u1',
+      projectId: 'p1',
+      taskId: 't1',
+      project,
+      task,
+      createdAt: '',
+      updatedAt: '',
+    };
+    component.projects.set([project]);
+    component.weekStart.set(new Date(2026, 9, 12));
+    component.timeEntries.set([entry]);
+    fixture.detectChanges();
+
+    component.toggleEntryEdit(entry);
+    httpMock
+      .expectOne((request) => request.url.endsWith('/projects/p1/tasks'))
+      .flush({ tasks: [task] });
+    component.updateEntryDraft({ description: 'Autosaved description' });
+
+    await new Promise((resolve) => setTimeout(resolve, 550));
+    const updateRequest = httpMock.expectOne(
+      (request) => request.method === 'PATCH' && request.url.endsWith('/time-entries/e1'),
+    );
+    expect(updateRequest.request.body.description).toBe('Autosaved description');
+    updateRequest.flush({
+      timeEntry: { ...entry, description: 'Autosaved description' },
+    });
+    fixture.detectChanges();
+
+    const form = fixture.nativeElement.querySelector('.entry-edit-form') as HTMLElement;
+    expect(component.editingEntry()?.id).toBe(entry.id);
+    expect(form.textContent).not.toContain('Save changes');
+    expect(form.textContent).not.toContain('Cancel');
+    expect(form.querySelector('.entry-save-status')?.textContent).toContain('Changes saved');
+    const removeButton = form.querySelector(
+      '.entry-edit-actions button',
+    ) as HTMLButtonElement;
+    expect(removeButton.textContent).toContain('Remove entry');
+    expect(removeButton.classList.contains('btn-danger')).toBe(true);
+  });
+
   it('groups entries by start date and moves an edited entry to its new day', () => {
     const project = {
       id: 'p1',
@@ -757,27 +818,18 @@ describe('Dashboard', () => {
     const updatedEnd = new Date('2026-10-16T11:00').toISOString();
     updateRequest.flush({ timeEntry: { ...entry, startTime: updatedStart } });
 
-    httpMock
-      .expectOne((request) => request.url.endsWith('/time-entries'))
-      .flush({
-        timeEntries: [
-          {
-            ...entry,
-            projectId: 'p2',
-            taskId: 't2',
-            project: replacementProject,
-            task: replacementTask,
-            description: 'Updated drafting',
-            startTime: updatedStart,
-            endTime: updatedEnd,
-            durationSeconds: 7200,
-          },
-          { ...entry, id: 'e2', startTime: '2026-10-17T11:00:00.000Z' },
-        ],
-      });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.entry-day').length).toBe(2);
+    expect(component.editingEntry()?.id).toBe(entry.id);
+    expect(component.timeEntries()[0]).toMatchObject({
+      projectId: 'p2',
+      taskId: 't2',
+      description: 'Updated drafting',
+      startTime: updatedStart,
+      endTime: updatedEnd,
+      durationSeconds: 7200,
+    });
     const movedTo = new Date(updatedStart);
     const movedDayKey = `${movedTo.getFullYear()}-${String(movedTo.getMonth() + 1).padStart(
       2,

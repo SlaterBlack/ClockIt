@@ -418,14 +418,23 @@
 
 .entry-edit-actions {
   display: flex;
+  justify-content: flex-end;
   flex-wrap: wrap;
   gap: var(--space-sm);
+}
+
+.entry-save-status {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  text-align: right;
 }
 
 .entry-removal-confirmation {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-sm);
   padding-top: var(--space-sm);
   border-top: 1px solid var(--color-border);

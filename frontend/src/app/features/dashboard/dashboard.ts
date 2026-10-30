@@ -1,7 +1,8 @@
 import { DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
-import { interval } from 'rxjs';
+import { EMPTY, Observable, Subject, interval } from 'rxjs';
+import { catchError, concatMap, finalize, tap } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { Project as ProjectService } from '../../core/services/project';
 import { Task as TaskService } from '../../core/services/task';
@@ -62,6 +63,11 @@ export class Dashboard implements OnInit {
   private readonly taskService = inject(TaskService);
   private readonly dashboardReminders = inject(DashboardReminders);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly entryEditSaveRequests = new Subject<TimeEntryEdit>();
+  private readonly savedEntryEditSnapshots = new Map<string, TimeEntryEdit>();
+  private readonly queuedEntryEditSnapshots = new Map<string, TimeEntryEdit>();
+  private readonly pendingEntryEditSaveCounts = new Map<string, number>();
+  private entryEditSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly description = signal('');
   readonly timeEntries = signal<TimeEntryDto[]>([]);
@@ -134,6 +140,8 @@ export class Dashboard implements OnInit {
   readonly editingTasks = signal<TaskDto[]>([]);
   readonly editingError = signal<string | null>(null);
   readonly isSavingEntry = signal(false);
+  readonly savingEntryId = signal<string | null>(null);
+  readonly entrySaveStatus = signal<'idle' | 'saving' | 'saved'>('idle');
   readonly entryPendingRemovalId = signal<string | null>(null);
   readonly isRemovingEntry = signal(false);
   readonly isManualEntryOpen = signal(false);
@@ -182,6 +190,17 @@ export class Dashboard implements OnInit {
     this.refresh();
     this.loadProjects();
     this.refreshActiveReminders();
+    this.destroyRef.onDestroy(() => {
+      if (this.entryEditSaveTimer !== null) {
+        clearTimeout(this.entryEditSaveTimer);
+      }
+    });
+    this.entryEditSaveRequests
+      .pipe(
+        concatMap((draft) => this.persistEntryEdit(draft)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
     interval(60_000)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.refreshActiveReminders());
@@ -490,9 +509,10 @@ export class Dashboard implements OnInit {
 
   toggleEntryEdit(entry: TimeEntryDto): void {
     if (this.editingEntry()?.id === entry.id) {
-      this.cancelEntryEdit();
+      this.closeEntryEdit();
       return;
     }
+    this.flushScheduledEntryEditSave();
     const draft: TimeEntryEdit = {
       id: entry.id,
       projectId: entry.projectId ?? '',
@@ -503,9 +523,14 @@ export class Dashboard implements OnInit {
       endTime: entry.endTime ? this.toLocalDateTime(entry.endTime).slice(11) : '',
       isBillable: entry.isBillable,
     };
+    if (!this.pendingEntryEditSaveCounts.has(entry.id)) {
+      this.savedEntryEditSnapshots.set(entry.id, { ...draft });
+      this.queuedEntryEditSnapshots.delete(entry.id);
+    }
     this.entryPendingRemovalId.set(null);
     this.editingEntry.set(draft);
     this.editingError.set(null);
+    this.entrySaveStatus.set('idle');
     this.loadEditingTasks(draft.projectId);
   }
 
@@ -516,16 +541,41 @@ export class Dashboard implements OnInit {
     }
   }
 
-  cancelEntryEdit(): void {
+  closeEntryEdit(): void {
+    this.flushScheduledEntryEditSave();
+    this.clearEditingEntry();
+  }
+
+  onEntryEditFocusOut(event: FocusEvent): void {
+    const form = event.currentTarget;
+    if (
+      event.relatedTarget instanceof Node &&
+      form instanceof Node &&
+      form.contains(event.relatedTarget)
+    ) {
+      return;
+    }
+    this.flushScheduledEntryEditSave();
+  }
+
+  private clearEditingEntry(): void {
+    if (this.entryEditSaveTimer !== null) {
+      clearTimeout(this.entryEditSaveTimer);
+      this.entryEditSaveTimer = null;
+    }
     this.editingEntry.set(null);
     this.editingTasks.set([]);
     this.editingError.set(null);
+    this.entrySaveStatus.set('idle');
     this.entryPendingRemovalId.set(null);
   }
 
   requestEntryRemoval(entry: TimeEntryDto): void {
     if (this.isRemovingEntry()) {
       return;
+    }
+    if (this.editingEntry()?.id === entry.id) {
+      this.flushScheduledEntryEditSave();
     }
     this.entryPendingRemovalId.set(entry.id);
     this.editingError.set(null);
@@ -548,7 +598,7 @@ export class Dashboard implements OnInit {
       next: () => {
         this.isRemovingEntry.set(false);
         if (this.editingEntry()?.id === entry.id) {
-          this.cancelEntryEdit();
+          this.clearEditingEntry();
         } else {
           this.entryPendingRemovalId.set(null);
         }
@@ -565,8 +615,15 @@ export class Dashboard implements OnInit {
     });
   }
 
-  updateEntryDraft(changes: Partial<TimeEntryEdit>): void {
+  updateEntryDraft(changes: Partial<TimeEntryEdit>, scheduleSave = true): void {
     this.editingEntry.update((draft) => (draft ? { ...draft, ...changes } : null));
+    if (this.editingEntry()) {
+      this.editingError.set(null);
+      this.entrySaveStatus.set('idle');
+      if (scheduleSave) {
+        this.scheduleEntryEditSave();
+      }
+    }
   }
 
   entryTimePickerValue(time: string | undefined): string {
@@ -588,55 +645,233 @@ export class Dashboard implements OnInit {
   }
 
   onEditProjectChange(projectId: string): void {
-    this.updateEntryDraft({ projectId, taskId: '' });
+    this.flushScheduledEntryEditSave();
+    this.updateEntryDraft({ projectId, taskId: '' }, false);
     this.loadEditingTasks(projectId);
   }
 
   saveEntryEdit(): void {
+    this.flushScheduledEntryEditSave();
+  }
+
+  private scheduleEntryEditSave(): void {
+    if (this.entryEditSaveTimer !== null) {
+      clearTimeout(this.entryEditSaveTimer);
+    }
+    this.entryEditSaveTimer = setTimeout(() => {
+      this.entryEditSaveTimer = null;
+      const draft = this.editingEntry();
+      if (draft) {
+        this.queueEntryEditSave(draft);
+      }
+    }, 500);
+  }
+
+  private flushScheduledEntryEditSave(): void {
+    if (this.entryEditSaveTimer !== null) {
+      clearTimeout(this.entryEditSaveTimer);
+      this.entryEditSaveTimer = null;
+    }
     const draft = this.editingEntry();
-    if (!draft?.taskId) {
-      this.editingError.set('Select a project and task.');
+    if (draft) {
+      this.queueEntryEditSave(draft);
+    }
+  }
+
+  private queueEntryEditSave(draft: TimeEntryEdit): void {
+    if (!draft.taskId) {
       return;
     }
-    if (!draft.date || !draft.startTime) {
-      this.editingError.set('Enter a date and start time.');
+    const queued = this.queuedEntryEditSnapshots.get(draft.id);
+    if (queued && this.sameEntryEdit(queued, draft)) {
       return;
+    }
+    const snapshot = { ...draft };
+    this.queuedEntryEditSnapshots.set(draft.id, snapshot);
+    this.pendingEntryEditSaveCounts.set(
+      draft.id,
+      (this.pendingEntryEditSaveCounts.get(draft.id) ?? 0) + 1,
+    );
+    this.entryEditSaveRequests.next(snapshot);
+  }
+
+  private persistEntryEdit(draft: TimeEntryEdit): Observable<unknown> {
+    const savedSnapshot = this.savedEntryEditSnapshots.get(draft.id);
+    if (savedSnapshot && this.sameEntryEdit(savedSnapshot, draft)) {
+      this.finishQueuedEntryEditSave(draft.id);
+      return EMPTY;
+    }
+
+    const invalidMessage = this.entryEditValidationMessage(draft);
+    if (invalidMessage) {
+      if (this.editingEntry()?.id === draft.id) {
+        this.editingError.set(invalidMessage);
+      } else {
+        this.errorMessage.set(`Could not save the edited time entry. ${invalidMessage}`);
+      }
+      this.queuedEntryEditSnapshots.delete(draft.id);
+      this.finishQueuedEntryEditSave(draft.id);
+      return EMPTY;
     }
 
     const start = new Date(`${draft.date}T${draft.startTime}`);
     const end = draft.endTime ? new Date(`${draft.date}T${draft.endTime}`) : null;
-    if (Number.isNaN(start.getTime()) || (end && Number.isNaN(end.getTime()))) {
-      this.editingError.set('Enter a valid date and start and end times.');
-      return;
-    }
-    if (end && end <= start) {
-      this.editingError.set('End time must be after start time on the same date.');
-      return;
-    }
+    const update = {
+      taskId: draft.taskId,
+      description: draft.description,
+      isBillable: draft.isBillable,
+      startTime: start.toISOString(),
+      endTime: end?.toISOString() ?? null,
+    };
 
     this.isSavingEntry.set(true);
+    this.savingEntryId.set(draft.id);
+    if (this.editingEntry()?.id === draft.id) {
+      this.entrySaveStatus.set('saving');
+    }
     this.editingError.set(null);
-    this.timeEntryService
-      .update(draft.id, {
-        taskId: draft.taskId,
-        description: draft.description,
-        isBillable: draft.isBillable,
-        startTime: start.toISOString(),
-        endTime: end?.toISOString() ?? null,
-      })
-      .subscribe({
-        next: () => {
-          this.isSavingEntry.set(false);
-          this.cancelEntryEdit();
-          this.refresh();
-        },
-        error: () => {
-          this.isSavingEntry.set(false);
+    return this.timeEntryService.update(draft.id, update).pipe(
+      tap(({ timeEntry }) => {
+        this.savedEntryEditSnapshots.set(draft.id, { ...draft });
+        this.applySavedEntryEdit(draft, update, timeEntry);
+        const currentDraft = this.editingEntry();
+        if (currentDraft?.id === draft.id) {
+          this.editingError.set(null);
+          this.entrySaveStatus.set(
+            this.sameEntryEdit(currentDraft, draft) ? 'saved' : 'idle',
+          );
+        }
+      }),
+      catchError(() => {
+        this.queuedEntryEditSnapshots.delete(draft.id);
+        if (this.editingEntry()?.id === draft.id) {
           this.editingError.set(
             'Could not update the time entry. Check the details and try again.',
           );
-        },
-      });
+          this.entrySaveStatus.set('idle');
+        } else {
+          this.errorMessage.set(
+            'Could not update the time entry. Check the details and try again.',
+          );
+        }
+        return EMPTY;
+      }),
+      finalize(() => {
+        this.isSavingEntry.set(false);
+        this.savingEntryId.set(null);
+        this.finishQueuedEntryEditSave(draft.id);
+      }),
+    );
+  }
+
+  private entryEditValidationMessage(draft: TimeEntryEdit): string | null {
+    if (!draft.taskId) {
+      return 'Select a project and task.';
+    }
+    if (!draft.date || !draft.startTime) {
+      return 'Enter a date and start time.';
+    }
+    const start = new Date(`${draft.date}T${draft.startTime}`);
+    const end = draft.endTime ? new Date(`${draft.date}T${draft.endTime}`) : null;
+    if (Number.isNaN(start.getTime()) || (end && Number.isNaN(end.getTime()))) {
+      return 'Enter a valid date and start and end times.';
+    }
+    if (end && end <= start) {
+      return 'End time must be after start time on the same date.';
+    }
+    return null;
+  }
+
+  private applySavedEntryEdit(
+    draft: TimeEntryEdit,
+    update: {
+      taskId: string;
+      description: string;
+      isBillable: boolean;
+      startTime: string;
+      endTime: string | null;
+    },
+    response: TimeEntryDto,
+  ): void {
+    let updatedEntry: TimeEntryDto | null = null;
+    const project = this.projects().find((item) => item.id === draft.projectId);
+    const task = this.editingTasks().find((item) => item.id === draft.taskId);
+    const durationSeconds = update.endTime
+      ? Math.max(
+          0,
+          Math.round(
+            (new Date(update.endTime).getTime() - new Date(update.startTime).getTime()) / 1000,
+          ),
+        )
+      : null;
+    this.timeEntries.update((entries) =>
+      entries.map((entry) => {
+        if (entry.id !== draft.id) {
+          return entry;
+        }
+        const savedEntry: TimeEntryDto = {
+          ...entry,
+          ...response,
+          projectId: draft.projectId,
+          taskId: update.taskId,
+          description: update.description,
+          isBillable: update.isBillable,
+          startTime: update.startTime,
+          endTime: update.endTime,
+          durationSeconds,
+          project: project
+            ? {
+                id: project.id,
+                name: project.name,
+                projectNumber: project.projectNumber,
+              }
+            : null,
+          task: task
+            ? { id: task.id, name: task.name, payType: task.payType }
+            : null,
+        };
+        updatedEntry = savedEntry;
+        return savedEntry;
+      }),
+    );
+    if (this.runningEntry()?.id === draft.id) {
+      if (update.endTime) {
+        this.runningEntry.set(null);
+        this.runningTimerEdit.set(null);
+        this.runningTasks.set([]);
+      } else if (updatedEntry) {
+        this.runningEntry.set(updatedEntry);
+        this.runningTimerEdit.set({
+          projectId: draft.projectId,
+          taskId: update.taskId,
+          startTime: this.toLocalDateTime(update.startTime),
+          originalStartTime: update.startTime,
+        });
+        this.runningTasks.set(this.editingTasks());
+      }
+    }
+  }
+
+  private sameEntryEdit(left: TimeEntryEdit, right: TimeEntryEdit): boolean {
+    return (
+      left.id === right.id &&
+      left.projectId === right.projectId &&
+      left.taskId === right.taskId &&
+      left.description === right.description &&
+      left.date === right.date &&
+      left.startTime === right.startTime &&
+      left.endTime === right.endTime &&
+      left.isBillable === right.isBillable
+    );
+  }
+
+  private finishQueuedEntryEditSave(entryId: string): void {
+    const remaining = (this.pendingEntryEditSaveCounts.get(entryId) ?? 1) - 1;
+    if (remaining > 0) {
+      this.pendingEntryEditSaveCounts.set(entryId, remaining);
+    } else {
+      this.pendingEntryEditSaveCounts.delete(entryId);
+    }
   }
 
   formatDuration(entry: TimeEntryDto): string {
