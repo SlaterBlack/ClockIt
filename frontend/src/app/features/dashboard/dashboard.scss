@@ -265,7 +265,7 @@
 
 .time-entry-item {
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr);
+  grid-template-columns: 4rem minmax(0, 1fr);
   column-gap: var(--space-sm);
   margin-left: -0.25rem;
   padding-right: 0.25rem;
@@ -278,46 +278,18 @@
 }
 
 .entry-play-button {
-  display: grid;
-  align-self: center;
+  box-sizing: border-box;
   grid-column: 1;
   grid-row: 1;
-  place-items: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  min-height: 1.5rem;
-  margin: 0 0 0 0.25rem;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--color-primary);
+  align-self: center;
+  width: 3.75rem;
+  min-height: 28px;
+  margin-left: 0.25rem;
+  padding: 0.1rem 0.35rem;
   box-shadow: none;
-  cursor: pointer;
-
-  &:hover:not(:disabled) {
-    color: var(--color-accent);
-    background: transparent;
-    box-shadow: none;
-    transform: none;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
-  }
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
-  }
-}
-
-.entry-play-icon {
-  width: 1rem;
-  height: 1rem;
-  overflow: visible;
-  fill: currentColor;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  justify-content: center;
 }
 
 .time-entry {

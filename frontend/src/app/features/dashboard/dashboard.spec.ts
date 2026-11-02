@@ -92,24 +92,26 @@ describe('Dashboard', () => {
     expect(fixture.nativeElement.querySelector('.entry-project-task').textContent).toContain(
       'Current week',
     );
-    expect(fixture.nativeElement.querySelector('.week-total-inline strong').textContent.trim()).toBe(
-      '1h 0m',
-    );
+    expect(
+      fixture.nativeElement.querySelector('.week-total-inline strong').textContent.trim(),
+    ).toBe('1h 0m');
     expect(
       (fixture.nativeElement.querySelector('[aria-label="Next week"]') as HTMLButtonElement)
         .disabled,
     ).toBe(true);
 
-    (fixture.nativeElement.querySelector('[aria-label="Previous week"]') as HTMLButtonElement).click();
+    (
+      fixture.nativeElement.querySelector('[aria-label="Previous week"]') as HTMLButtonElement
+    ).click();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.entry-day')).toHaveLength(1);
     expect(fixture.nativeElement.querySelector('.entry-project-task').textContent).toContain(
       'Previous week',
     );
-    expect(fixture.nativeElement.querySelector('.week-total-inline strong').textContent.trim()).toBe(
-      '1h 0m',
-    );
+    expect(
+      fixture.nativeElement.querySelector('.week-total-inline strong').textContent.trim(),
+    ).toBe('1h 0m');
     const entryDays = fixture.nativeElement.querySelector('.entry-days');
     const pagination = fixture.nativeElement.querySelector('.week-pagination');
     expect(entryDays.nextElementSibling).toBe(pagination);
@@ -165,18 +167,49 @@ describe('Dashboard', () => {
 
     expect(
       fixture.nativeElement.querySelector('.week-total-inline strong').textContent.trim(),
-    ).toBe(
-      '1h 30m',
-    );
+    ).toBe('1h 30m');
 
     component.clockNow.set(now.getTime() + 60_000);
     fixture.detectChanges();
 
     expect(
       fixture.nativeElement.querySelector('.week-total-inline strong').textContent.trim(),
-    ).toBe(
-      '1h 31m',
+    ).toBe('1h 31m');
+  });
+
+  it('labels the resume action and explains that selector arrows open dropdowns', () => {
+    component.weekStart.set(new Date(2026, 9, 19));
+    component.timeEntries.set([
+      {
+        id: 'e1',
+        description: 'Planning',
+        startTime: new Date(2026, 9, 19, 9).toISOString(),
+        endTime: new Date(2026, 9, 19, 10).toISOString(),
+        durationSeconds: 3600,
+        isBillable: true,
+        userId: 'u1',
+        projectId: 'p1',
+        taskId: 't1',
+        task: { id: 't1', name: 'Design' },
+        createdAt: '',
+        updatedAt: '',
+      },
+    ]);
+    fixture.detectChanges();
+
+    const resumeButton = fixture.nativeElement.querySelector(
+      '.entry-play-button',
+    ) as HTMLButtonElement;
+    expect(resumeButton.textContent.trim()).toBe('Resume');
+    expect(resumeButton.querySelector('svg')).toBeNull();
+    expect(resumeButton.getAttribute('aria-label')).toContain('Resume timer from Planning');
+    expect(fixture.nativeElement.querySelector('.entry-actions-hint').textContent).toContain(
+      'open their dropdown menus',
     );
+    expect(
+      (fixture.nativeElement.querySelector('select[aria-label="Project"]') as HTMLSelectElement)
+        .title,
+    ).toBe('Open the project dropdown');
   });
 
   it('does not start a timer without a task', () => {
@@ -397,7 +430,15 @@ describe('Dashboard', () => {
       createdAt: '',
       updatedAt: '',
     };
-    const task = { id: 't2', name: 'Documentation', projectId: 'p1', createdAt: '', updatedAt: '' };
+    const task = {
+      id: 't2',
+      name: 'Documentation',
+      projectId: 'p1',
+      payType: 'hourly' as const,
+      isBillable: true,
+      createdAt: '',
+      updatedAt: '',
+    };
     const running = {
       id: 'e1',
       description: 'Planning',
@@ -420,6 +461,7 @@ describe('Dashboard', () => {
       taskId: 't1',
       startTime: '2026-10-19T00:00',
     });
+
     component.clockNow.set(new Date('2020-01-01T10:00').getTime());
 
     component.onRunningProjectChange('p1');
@@ -488,6 +530,112 @@ describe('Dashboard', () => {
       .flush({ timeEntries: [] });
 
     expect(component.runningEntry()).toBeNull();
+  });
+
+  it('saves a task change while its timer is still running', () => {
+    const project = {
+      id: 'p1',
+      name: 'George Street',
+      projectNumber: '742',
+      color: '#2D6A4F',
+      isBillable: true,
+      workspaceId: 'w1',
+      archived: false,
+      createdAt: '',
+      updatedAt: '',
+    };
+    const task = {
+      id: 't2',
+      name: 'Documentation',
+      projectId: 'p1',
+      payType: 'hourly' as const,
+      isBillable: true,
+      createdAt: '',
+      updatedAt: '',
+    };
+    const running = {
+      id: 'e1',
+      description: 'Planning',
+      startTime: '2026-10-19T00:00:00.000Z',
+      endTime: null,
+      durationSeconds: null,
+      isBillable: true,
+      userId: 'u1',
+      projectId: 'p1',
+      taskId: 't1',
+      project,
+      task: { id: 't1', name: 'Design' },
+      createdAt: '',
+      updatedAt: '',
+    };
+    component.runningEntry.set(running);
+    component.timeEntries.set([running]);
+    component.runningTasks.set([task]);
+    component.runningTimerEdit.set({
+      projectId: 'p1',
+      taskId: 't1',
+      startTime: '2026-10-19T00:00',
+    });
+    fixture.detectChanges();
+
+    const taskSelect = fixture.nativeElement.querySelector(
+      'select[aria-label="Task for running timer"]',
+    ) as HTMLSelectElement;
+    taskSelect.value = task.id;
+    taskSelect.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    const request = httpMock.expectOne(
+      (req) => req.method === 'PATCH' && req.url.endsWith('/time-entries/e1'),
+    );
+    expect(request.request.body).toEqual({ taskId: 't2' });
+    expect(component.runningTimerSaveStatus()).toBe('saving');
+    request.flush({ timeEntry: { ...running, taskId: task.id, task } });
+
+    expect(component.runningEntry()?.taskId).toBe('t2');
+    expect(component.runningEntry()?.endTime).toBeNull();
+    expect(component.timeEntries()[0].taskId).toBe('t2');
+    expect(component.runningTimerSaveStatus()).toBe('saved');
+    expect(component.errorMessage()).toBeNull();
+  });
+
+  it('shows an error when saving a running timer task change fails', () => {
+    const task = {
+      id: 't2',
+      name: 'Documentation',
+      projectId: 'p1',
+      payType: 'hourly' as const,
+      isBillable: true,
+      createdAt: '',
+      updatedAt: '',
+    };
+    component.runningEntry.set({
+      id: 'e1',
+      description: 'Planning',
+      startTime: '2026-10-19T00:00:00.000Z',
+      endTime: null,
+      durationSeconds: null,
+      isBillable: true,
+      userId: 'u1',
+      projectId: 'p1',
+      taskId: 't1',
+      createdAt: '',
+      updatedAt: '',
+    });
+    component.runningTasks.set([task]);
+    component.runningTimerEdit.set({
+      projectId: 'p1',
+      taskId: 't1',
+      startTime: '2026-10-19T00:00',
+    });
+
+    component.onRunningTaskChange(task.id);
+    httpMock
+      .expectOne((req) => req.method === 'PATCH' && req.url.endsWith('/time-entries/e1'))
+      .flush({ error: 'Could not save' }, { status: 500, statusText: 'Server error' });
+
+    expect(component.runningTimerSaveStatus()).toBe('error');
+    expect(component.errorMessage()).toContain('Could not save the selected task');
   });
 
   it('keeps the server start seconds and milliseconds when displaying and stopping a timer', () => {
@@ -720,9 +868,7 @@ describe('Dashboard', () => {
     expect(form.textContent).not.toContain('Save changes');
     expect(form.textContent).not.toContain('Cancel');
     expect(form.querySelector('.entry-save-status')?.textContent).toContain('Changes saved');
-    const removeButton = form.querySelector(
-      '.entry-edit-actions button',
-    ) as HTMLButtonElement;
+    const removeButton = form.querySelector('.entry-edit-actions button') as HTMLButtonElement;
     expect(removeButton.textContent).toContain('Remove entry');
     expect(removeButton.classList.contains('btn-danger')).toBe(true);
   });

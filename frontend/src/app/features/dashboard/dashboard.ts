@@ -64,6 +64,7 @@ export class Dashboard implements OnInit {
   private readonly dashboardReminders = inject(DashboardReminders);
   private readonly destroyRef = inject(DestroyRef);
   private readonly entryEditSaveRequests = new Subject<TimeEntryEdit>();
+  private readonly runningTaskSaveRequests = new Subject<{ entryId: string; taskId: string }>();
   private readonly savedEntryEditSnapshots = new Map<string, TimeEntryEdit>();
   private readonly queuedEntryEditSnapshots = new Map<string, TimeEntryEdit>();
   private readonly pendingEntryEditSaveCounts = new Map<string, number>();
@@ -119,6 +120,8 @@ export class Dashboard implements OnInit {
   );
   readonly runningEntry = signal<TimeEntryDto | null>(null);
   readonly runningTimerEdit = signal<RunningTimerEdit | null>(null);
+  readonly runningTimerSaveStatus = signal<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  readonly isSavingRunningTask = computed(() => this.runningTimerSaveStatus() === 'saving');
   readonly runningTasks = signal<TaskDto[]>([]);
   readonly projects = signal<ProjectDto[]>([]);
   readonly tasks = signal<TaskDto[]>([]);
@@ -174,12 +177,7 @@ export class Dashboard implements OnInit {
       : running
         ? new Date(this.clockNow())
         : null;
-    if (
-      Number.isNaN(start.getTime()) ||
-      !end ||
-      Number.isNaN(end.getTime()) ||
-      end <= start
-    ) {
+    if (Number.isNaN(start.getTime()) || !end || Number.isNaN(end.getTime()) || end <= start) {
       return '—';
     }
 
@@ -198,6 +196,48 @@ export class Dashboard implements OnInit {
     this.entryEditSaveRequests
       .pipe(
         concatMap((draft) => this.persistEntryEdit(draft)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
+    this.runningTaskSaveRequests
+      .pipe(
+        concatMap(({ entryId, taskId }) =>
+          this.timeEntryService.update(entryId, { taskId }).pipe(
+            tap(({ timeEntry }) => {
+              const previousEntry =
+                this.timeEntries().find((entry) => entry.id === entryId) ?? this.runningEntry();
+              const savedEntry: TimeEntryDto = {
+                ...previousEntry,
+                ...timeEntry,
+                project:
+                  this.projects().find((project) => project.id === timeEntry.projectId) ??
+                  previousEntry?.project,
+                task:
+                  this.runningTasks().find((task) => task.id === taskId) ?? previousEntry?.task,
+              };
+              this.runningEntry.update((running) =>
+                running?.id === entryId ? savedEntry : running,
+              );
+              this.timeEntries.update((entries) =>
+                entries.map((entry) => (entry.id === entryId ? savedEntry : entry)),
+              );
+              if (this.runningTimerEdit()?.taskId === taskId) {
+                this.runningTimerEdit.update((draft) =>
+                  draft ? { ...draft, projectId: savedEntry.projectId ?? '' } : null,
+                );
+                this.runningTimerSaveStatus.set('saved');
+              }
+              this.errorMessage.set(null);
+            }),
+            catchError(() => {
+              this.runningTimerSaveStatus.set('error');
+              this.errorMessage.set(
+                'Could not save the selected task for the running timer. Try again.',
+              );
+              return EMPTY;
+            }),
+          ),
+        ),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe();
@@ -440,7 +480,27 @@ export class Dashboard implements OnInit {
   onRunningProjectChange(projectId: string): void {
     this.runningTimerEdit.update((draft) => (draft ? { ...draft, projectId, taskId: '' } : null));
     this.errorMessage.set(null);
+    this.runningTimerSaveStatus.set('idle');
     this.loadRunningTasks(projectId);
+  }
+
+  onRunningTaskChange(taskId: string): void {
+    const running = this.runningEntry();
+    this.updateRunningTimerDraft({ taskId });
+    this.errorMessage.set(null);
+    if (!running || !taskId) {
+      this.runningTimerSaveStatus.set('idle');
+      return;
+    }
+
+    const task = this.runningTasks().find((item) => item.id === taskId);
+    if (running.taskId === taskId && running.projectId === task?.projectId) {
+      this.runningTimerSaveStatus.set('saved');
+      return;
+    }
+
+    this.runningTimerSaveStatus.set('saving');
+    this.runningTaskSaveRequests.next({ entryId: running.id, taskId });
   }
 
   updateRunningTimerDraft(changes: Partial<RunningTimerEdit>): void {
@@ -737,9 +797,7 @@ export class Dashboard implements OnInit {
         const currentDraft = this.editingEntry();
         if (currentDraft?.id === draft.id) {
           this.editingError.set(null);
-          this.entrySaveStatus.set(
-            this.sameEntryEdit(currentDraft, draft) ? 'saved' : 'idle',
-          );
+          this.entrySaveStatus.set(this.sameEntryEdit(currentDraft, draft) ? 'saved' : 'idle');
         }
       }),
       catchError(() => {
@@ -826,9 +884,7 @@ export class Dashboard implements OnInit {
                 projectNumber: project.projectNumber,
               }
             : null,
-          task: task
-            ? { id: task.id, name: task.name, payType: task.payType }
-            : null,
+          task: task ? { id: task.id, name: task.name, payType: task.payType } : null,
         };
         updatedEntry = savedEntry;
         return savedEntry;
@@ -917,6 +973,9 @@ export class Dashboard implements OnInit {
       next: ({ timeEntries }) => {
         this.timeEntries.set(timeEntries);
         const running = timeEntries.find((entry) => entry.endTime === null) ?? null;
+        if (!running || this.runningEntry()?.id !== running.id) {
+          this.runningTimerSaveStatus.set('idle');
+        }
         this.runningEntry.set(running);
         this.runningTimerEdit.set(
           running

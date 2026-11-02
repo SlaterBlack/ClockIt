@@ -12,6 +12,7 @@
         [ngModel]="runningTimerEdit()?.projectId"
         (ngModelChange)="onRunningProjectChange($event)"
         aria-label="Project for running timer"
+        title="Open the project dropdown"
       >
         <option value="">Select project</option>
         @for (project of projects(); track project.id) {
@@ -22,9 +23,10 @@
       </select>
       <select
         [ngModel]="runningTimerEdit()?.taskId"
-        (ngModelChange)="updateRunningTimerDraft({ taskId: $event })"
+        (ngModelChange)="onRunningTaskChange($event)"
         [disabled]="!runningTimerEdit()?.projectId || runningTasks().length === 0"
         aria-label="Task for running timer"
+        title="Open the task dropdown"
       >
         <option value="">Select task</option>
         @for (task of runningTasks(); track task.id) {
@@ -43,11 +45,16 @@
     <div class="running-timer-right">
       <span class="running-time-label">Running time</span>
       <time class="running-time-value">{{ runningDuration() }}</time>
+      @if (runningTimerSaveStatus() === 'saving') {
+        <span class="running-time-label" role="status">Saving task…</span>
+      } @else if (runningTimerSaveStatus() === 'saved') {
+        <span class="running-time-label" role="status">Task saved</span>
+      }
       <button
         class="btn btn-danger"
         type="button"
         (click)="endAndSaveRunningTimer()"
-        [disabled]="!runningTimerEdit()?.taskId || isSubmitting()"
+        [disabled]="!runningTimerEdit()?.taskId || isSubmitting() || isSavingRunningTask()"
       >
         End
       </button>
@@ -64,6 +71,7 @@
       [ngModel]="selectedProjectId()"
       (ngModelChange)="onProjectChange($event)"
       aria-label="Project"
+      title="Open the project dropdown"
     >
       <option value="">Select project</option>
       @for (project of projects(); track project.id) {
@@ -77,6 +85,7 @@
       (ngModelChange)="selectedTaskId.set($event)"
       [disabled]="!selectedProjectId() || tasks().length === 0"
       aria-label="Task"
+      title="Open the task dropdown"
     >
       <option value="">Select task</option>
       @for (task of tasks(); track task.id) {
@@ -102,6 +111,7 @@
         [ngModel]="manualEntry()?.projectId"
         (ngModelChange)="onManualProjectChange($event)"
         aria-label="Project for manual time entry"
+        title="Open the project dropdown"
       >
         <option value="">Select project</option>
         @for (project of projects(); track project.id) {
@@ -115,6 +125,7 @@
         (ngModelChange)="onManualTaskChange($event)"
         [disabled]="!manualEntry()?.projectId || manualTasks().length === 0"
         aria-label="Task for manual time entry"
+        title="Open the task dropdown"
       >
         <option value="">Select task</option>
         @for (task of manualTasks(); track task.id) {
@@ -220,6 +231,14 @@
     <strong>{{ formatDurationSeconds(weekTotalDurationSeconds()) }}</strong>
   </div>
 </div>
+@if (timeEntries().length > 0) {
+  <p class="entry-actions-hint" role="note">
+    <small>
+      The <strong>Resume</strong> button starts a timer from that entry. Arrows on Project and
+      Task selectors open their dropdown menus.
+    </small>
+  </p>
+}
 @if (timeEntries().length === 0) {
   <div class="card"><p>No time entries yet. Start your first timer above.</p></div>
 } @else if (weekEntryDays().length === 0) {
@@ -236,25 +255,22 @@
           @for (entry of day.entries; track entry.id) {
             <div class="time-entry-item" [class.is-editing]="editingEntry()?.id === entry.id">
               <button
-                class="entry-play-button"
+                class="entry-play-button btn btn-secondary"
                 type="button"
                 [disabled]="!entry.endTime || isSubmitting()"
                 [attr.aria-label]="
-                  'Start timer from ' + (entry.description || entry.task?.name || 'time entry')
+                  entry.endTime
+                    ? 'Resume timer from ' + (entry.description || entry.task?.name || 'time entry')
+                    : 'This timer is already running'
                 "
                 [attr.title]="
-                  entry.endTime ? 'Start a timer from this entry' : 'This timer is already running'
+                  entry.endTime
+                    ? 'Resume timer from this time entry'
+                    : 'This timer is already running'
                 "
                 (click)="startTimerFromEntry(entry)"
               >
-                <svg
-                  class="entry-play-icon"
-                  viewBox="0 0 16 16"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path d="M4 2.9a1 1 0 0 1 1.5-.8l8 5a1 1 0 0 1 0 1.7l-8 5A1 1 0 0 1 4 13z" />
-                </svg>
+                <span>Resume</span>
               </button>
               <article
                 class="time-entry"
@@ -292,6 +308,7 @@
                       [ngModel]="editingEntry()?.projectId"
                       (ngModelChange)="onEditProjectChange($event)"
                       [attr.aria-label]="'Project for time entry'"
+                      title="Open the project dropdown"
                     >
                       <option value="">Select project</option>
                       @for (project of projects(); track project.id) {
@@ -306,6 +323,7 @@
                       (ngModelChange)="updateEntryDraft({ taskId: $event })"
                       [disabled]="!editingEntry()?.projectId || editingTasks().length === 0"
                       aria-label="Task for time entry"
+                      title="Open the task dropdown"
                     >
                       <option value="">Select task</option>
                       @for (task of editingTasks(); track task.id) {
