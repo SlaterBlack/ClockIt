@@ -461,12 +461,43 @@
   }
 
   .timer-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     align-items: stretch;
-    flex-wrap: wrap;
 
-    .timer-input {
-      flex-basis: 100%;
+    .timer-input,
+    select {
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
     }
+  }
+
+  .timer-card.timer-card-running {
+    gap: var(--space-sm);
+    overflow: visible;
+  }
+
+  .timer-card:not(.timer-card-running) .btn {
+    justify-self: end;
+  }
+
+  .running-timer-left {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-sm);
+
+    select { min-width: 0; }
+  }
+
+  .running-timer-right {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    margin: 0;
+  }
+
+  .running-time-value {
+    min-width: 0;
   }
 
   .time-entry-details {
