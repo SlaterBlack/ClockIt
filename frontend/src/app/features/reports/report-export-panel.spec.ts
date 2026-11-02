@@ -73,8 +73,7 @@ describe('ReportExportPanel', () => {
 
     findButton('Export workbook').click();
     const request = httpMock.expectOne(
-      (req) =>
-        req.url.endsWith('/reports/time-entries') && req.params.get('userId') === 'all',
+      (req) => req.url.endsWith('/reports/time-entries') && req.params.get('userId') === 'all',
     );
     const annualLeaveEntry = {
       ...makeEntry('e2', true, new Date(2026, 9, 20, 11).toISOString()),
@@ -98,7 +97,10 @@ describe('ReportExportPanel', () => {
     expect(summaryXml).toContain('Total Paid Hours');
     expect(summaryXml).toContain('Hourly Wage');
     expect(summaryXml).toContain('Annual Leave');
-    expect(summaryXml).not.toContain('Public Holiday');
+    expect(summaryXml).toContain('Public Holiday');
+    expect(summaryXml).toContain('Sick Leave');
+    expect(summaryXml).toContain('TOIL Accrued');
+    expect(summaryXml).toContain('TOIL Used');
     expect(summaryXml).toContain('All users');
     expect(detailsXml).toContain('Website');
   });

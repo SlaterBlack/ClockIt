@@ -1,6 +1,6 @@
 <header class="navbar">
   <a class="navbar-brand" routerLink="/dashboard" aria-label="ClockIt home">
-    <img src="/ClockItLogo_32x32.png" width="24" height="24" alt="">
+    <img src="/ClockItLogo_32x32.png" width="24" height="24" alt="" />
     <span class="navbar-brand-word">Clock<span class="navbar-brand-accent">It</span></span>
   </a>
   <nav class="navbar-links">
@@ -29,6 +29,9 @@
             @if (isAdmin()) {
               <a routerLink="/notifications" role="menuitem" (click)="closeAccountMenu()"
                 >Notifications</a
+              >
+              <a routerLink="/admin-settings" role="menuitem" (click)="closeAccountMenu()"
+                >Admin Settings</a
               >
               <a routerLink="/users" role="menuitem" (click)="closeAccountMenu()">Manage users</a>
             }

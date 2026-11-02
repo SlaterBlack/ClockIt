@@ -4,7 +4,10 @@ import { HttpErrorResponse } from '@angular/common/http';
 import type { PayType } from '../../core/models/pay-type.model';
 import { PAY_TYPES } from '../../core/models/pay-type.model';
 import type { TimeEntry } from '../../core/models/time-entry.model';
+import type { ToilSettingsResponse } from '../../core/models/toil.model';
+import { Auth } from '../../core/services/auth';
 import { Report } from '../../core/services/report';
+import { Toil } from '../../core/services/toil';
 import {
   buildXeroTimesheetCsv,
   completedEntries,
@@ -23,6 +26,8 @@ import { buildTimeReportWorkbook } from './report-workbook';
 })
 export class ReportExportPanel {
   private readonly reportService = inject(Report);
+  private readonly toilService = inject(Toil);
+  private readonly auth = inject(Auth);
 
   readonly entries = input.required<TimeEntry[]>();
   readonly startDate = input('');
@@ -60,20 +65,26 @@ export class ReportExportPanel {
 
     this.reportService.listTimeEntries('all').subscribe({
       next: ({ timeEntries }) => {
-        this.isExportingReport.set(false);
         const periodEntries = entriesInDateRange(timeEntries, startDate, endDate);
         if (!periodEntries.length) {
+          this.isExportingReport.set(false);
           this.errorMessage.set('There are no entries for any users in this date range.');
           return;
         }
 
-        try {
-          downloadBlobFile(
-            `time-report${suffix}.xlsx`,
-            buildTimeReportWorkbook(periodEntries, now, startDate, endDate),
-          );
-        } catch {
-          this.errorMessage.set('Could not create the report workbook. Try again.');
+        if (this.auth.isAdmin()) {
+          this.toilService.getSettings(startDate || undefined, endDate || undefined).subscribe({
+            next: (settings) =>
+              this.downloadReport(periodEntries, now, startDate, endDate, suffix, settings),
+            error: (error: HttpErrorResponse) => {
+              this.isExportingReport.set(false);
+              this.errorMessage.set(
+                this.apiError(error, 'Could not load TOIL settings for the report.'),
+              );
+            },
+          });
+        } else {
+          this.downloadReport(periodEntries, now, startDate, endDate, suffix);
         }
       },
       error: () => {
@@ -128,12 +139,7 @@ export class ReportExportPanel {
     this.importSuccessMessage.set(null);
 
     this.reportService.importTimeEntries(entries).subscribe({
-      next: ({
-        importedCount,
-        skippedCount,
-        createdProjectCount = 0,
-        createdTaskCount = 0,
-      }) => {
+      next: ({ importedCount, skippedCount, createdProjectCount = 0, createdTaskCount = 0 }) => {
         this.isImporting.set(false);
         this.pendingImport.set([]);
         this.importFileName.set('');
@@ -209,5 +215,32 @@ export class ReportExportPanel {
 
   private fileSuffix(): string {
     return this.startDate() && this.endDate() ? `_${this.startDate()}_to_${this.endDate()}` : '';
+  }
+
+  private downloadReport(
+    entries: TimeEntry[],
+    now: number,
+    startDate: string,
+    endDate: string,
+    suffix: string,
+    toilSettings?: ToilSettingsResponse,
+  ): void {
+    try {
+      downloadBlobFile(
+        `time-report${suffix}.xlsx`,
+        buildTimeReportWorkbook(entries, now, startDate, endDate, toilSettings),
+      );
+    } catch (error) {
+      this.errorMessage.set(
+        error instanceof Error ? error.message : 'Could not create the report workbook. Try again.',
+      );
+    } finally {
+      this.isExportingReport.set(false);
+    }
+  }
+
+  private apiError(error: HttpErrorResponse, fallback: string): string {
+    const message = (error.error as { error?: unknown } | null)?.error;
+    return typeof message === 'string' ? message : fallback;
   }
 }

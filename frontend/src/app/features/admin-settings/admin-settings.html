@@ -1,0 +1,165 @@
+<h1>Admin Settings</h1>
+<p class="admin-settings-intro">
+  Manage TOIL accrual policy, contracted hours, and recorded usage.
+</p>
+
+@if (errorMessage()) {
+  <p class="error-text" role="alert">{{ errorMessage() }}</p>
+}
+@if (statusMessage()) {
+  <p class="success-text" role="status">{{ statusMessage() }}</p>
+}
+
+@if (isLoading()) {
+  <p role="status">Loading admin settings…</p>
+} @else if (settings(); as currentSettings) {
+  <section class="card admin-settings-card" aria-label="TOIL accrual settings">
+    <div>
+      <h2>TOIL accrual</h2>
+      @if (currentSettings.payCycle.startDate) {
+        <p>
+          Reporting cycle starts {{ currentSettings.payCycle.startDate }} and lasts
+          {{ currentSettings.payCycle.periodDays }} days. Change the cycle in
+          <a routerLink="/notifications">Notifications</a>.
+        </p>
+      } @else {
+        <p class="schedule-notice" role="alert">
+          Set the first reporting date in <a routerLink="/notifications">Notifications</a> before
+          exporting TOIL reports.
+        </p>
+      }
+    </div>
+
+    <label class="multiplier-field">
+      TOIL accrual multiplier
+      <input
+        type="number"
+        min="0.01"
+        max="10"
+        step="0.01"
+        [ngModel]="accrualMultiplier()"
+        (ngModelChange)="accrualMultiplier.set(+$event); statusMessage.set(null)"
+      />
+      <small
+        >TOIL accrued for each eligible Hourly Wage hour above contracted hours. Default:
+        1:1.</small
+      >
+    </label>
+
+    <h3>Contracted hours per reporting cycle</h3>
+    <div class="contract-list">
+      @for (user of currentSettings.users; track user.id) {
+        <label class="contract-row">
+          <span
+            >{{ user.name }} <small>{{ user.email }}</small></span
+          >
+          <input
+            type="number"
+            min="0"
+            max="8784"
+            step="0.25"
+            [attr.aria-label]="'Contracted hours per cycle for ' + user.name"
+            [ngModel]="user.contractedHoursPerCycle ?? ''"
+            (ngModelChange)="setContractHours(user.id, $event)"
+          />
+        </label>
+      }
+    </div>
+    <div class="admin-settings-actions">
+      <button
+        class="btn btn-primary"
+        type="button"
+        [disabled]="isSaving()"
+        (click)="saveSettings()"
+      >
+        {{ isSaving() ? 'Saving…' : 'Save TOIL settings' }}
+      </button>
+    </div>
+  </section>
+
+  <section class="card admin-settings-card" aria-label="Record TOIL usage">
+    <div>
+      <h2>Record TOIL used</h2>
+      <p>Only administrators can add or remove dated TOIL usage records.</p>
+    </div>
+    <form class="usage-form" (submit)="$event.preventDefault(); recordUsage()">
+      <label>
+        User
+        <select
+          required
+          [ngModel]="usageDraft().userId"
+          (ngModelChange)="updateUsageDraft({ userId: $event })"
+          name="userId"
+        >
+          <option value="">Select a user</option>
+          @for (user of currentSettings.users; track user.id) {
+            <option [value]="user.id">{{ user.name }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        Date
+        <input
+          required
+          type="date"
+          [ngModel]="usageDraft().usageDate"
+          (ngModelChange)="updateUsageDraft({ usageDate: $event })"
+          name="usageDate"
+        />
+      </label>
+      <label>
+        Hours used
+        <input
+          required
+          type="number"
+          min="0.01"
+          max="8784"
+          step="0.25"
+          [ngModel]="usageDraft().hours"
+          (ngModelChange)="updateUsageDraft({ hours: $event })"
+          name="hours"
+        />
+      </label>
+      <label>
+        Reason (optional)
+        <input
+          type="text"
+          maxlength="500"
+          [ngModel]="usageDraft().reason"
+          (ngModelChange)="updateUsageDraft({ reason: $event })"
+          name="reason"
+        />
+      </label>
+      <button class="btn btn-primary" type="submit" [disabled]="isRecording()">
+        {{ isRecording() ? 'Recording…' : 'Record TOIL used' }}
+      </button>
+    </form>
+
+    <h3>Recent TOIL usage</h3>
+    @if (currentSettings.usages.length) {
+      <div class="usage-list">
+        @for (usage of currentSettings.usages; track usage.id) {
+          <div class="usage-row">
+            <div>
+              <strong>{{ usage.userName }}</strong>
+              <span>{{ usage.usageDate }} · {{ usage.hours }} hours</span>
+              @if (usage.reason) {
+                <small>{{ usage.reason }}</small>
+              }
+            </div>
+            <button
+              class="btn btn-danger"
+              type="button"
+              [disabled]="deletingId() === usage.id"
+              (click)="deleteUsage(usage)"
+            >
+              {{ deletingId() === usage.id ? 'Deleting…' : 'Delete' }}
+            </button>
+          </div>
+        }
+      </div>
+    } @else {
+      <p>No TOIL usage records have been entered.</p>
+    }
+  </section>
+}

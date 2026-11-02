@@ -40,6 +40,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/notifications/notifications').then((m) => m.Notifications),
       },
+      {
+        path: 'admin-settings',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/admin-settings/admin-settings').then((m) => m.AdminSettings),
+      },
     ],
   },
   { path: '**', redirectTo: 'dashboard' },
