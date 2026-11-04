@@ -505,6 +505,18 @@ describe('Dashboard', () => {
     startTime.blur();
     fixture.detectChanges();
     expect(component.runningTimerEdit()?.startTime).toBe('2020-01-01T09:40');
+    const startTimeRequest = httpMock.expectOne(
+      (request) => request.method === 'PATCH' && request.url.endsWith('/time-entries/e1'),
+    );
+    expect(startTimeRequest.request.body).toEqual({
+      startTime: new Date('2020-01-01T09:40').toISOString(),
+    });
+    startTimeRequest.flush({
+      timeEntry: {
+        ...running,
+        startTime: new Date('2020-01-01T09:40').toISOString(),
+      },
+    });
     component.updateRunningTimerDraft({ startTime: '2020-01-01T09:30' });
     fixture.detectChanges();
     (fixture.nativeElement.querySelector('.timer-card .btn-danger') as HTMLButtonElement).click();
@@ -635,7 +647,114 @@ describe('Dashboard', () => {
       .flush({ error: 'Could not save' }, { status: 500, statusText: 'Server error' });
 
     expect(component.runningTimerSaveStatus()).toBe('error');
-    expect(component.errorMessage()).toContain('Could not save the selected task');
+    expect(component.errorMessage()).toContain('Could not save changes to the running timer');
+  });
+
+  it('saves a running timer start-time change and updates the entry', () => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    const originalStart = new Date(now.getTime() - 30 * 60_000);
+    const changedStart = new Date(now.getTime() - 15 * 60_000);
+    const toLocalDateTime = (date: Date) => {
+      const pad = (value: number) => String(value).padStart(2, '0');
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+        date.getHours(),
+      )}:${pad(date.getMinutes())}`;
+    };
+    const running = {
+      id: 'e1',
+      description: 'Planning',
+      startTime: originalStart.toISOString(),
+      endTime: null,
+      durationSeconds: null,
+      isBillable: true,
+      userId: 'u1',
+      projectId: 'p1',
+      taskId: 't1',
+      createdAt: '',
+      updatedAt: '',
+    };
+    component.clockNow.set(now.getTime());
+    component.runningEntry.set(running);
+    component.timeEntries.set([running]);
+    component.runningTimerEdit.set({
+      projectId: 'p1',
+      taskId: 't1',
+      startTime: toLocalDateTime(originalStart),
+      originalStartTime: originalStart.toISOString(),
+    });
+    fixture.detectChanges();
+
+    component.onRunningStartTimeChange(toLocalDateTime(changedStart));
+    expect(component.runningTimerSaveStatus()).toBe('saving');
+
+    const request = httpMock.expectOne(
+      (req) => req.method === 'PATCH' && req.url.endsWith('/time-entries/e1'),
+    );
+    expect(request.request.body).toEqual({ startTime: changedStart.toISOString() });
+    request.flush({ timeEntry: { ...running, startTime: changedStart.toISOString() } });
+    fixture.detectChanges();
+
+    expect(component.runningEntry()?.startTime).toBe(changedStart.toISOString());
+    expect(component.timeEntries()[0].startTime).toBe(changedStart.toISOString());
+    expect(component.runningTimerEdit()?.originalStartTime).toBe(changedStart.toISOString());
+    expect(component.runningTimerSaveStatus()).toBe('saved');
+    expect(component.errorMessage()).toBeNull();
+    const displayedStart = new Intl.DateTimeFormat(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+      .format(changedStart)
+      .replace(/\u202f/g, ' ');
+    expect(
+      fixture.nativeElement
+        .querySelector('.entry-time-range')
+        .textContent.replace(/\u202f/g, ' '),
+    ).toContain(displayedStart);
+  });
+
+  it('shows an error and keeps the entry unchanged when saving a running start time fails', () => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    const originalStart = new Date(now.getTime() - 30 * 60_000);
+    const changedStart = new Date(now.getTime() - 15 * 60_000);
+    const toLocalDateTime = (date: Date) => {
+      const pad = (value: number) => String(value).padStart(2, '0');
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+        date.getHours(),
+      )}:${pad(date.getMinutes())}`;
+    };
+    const running = {
+      id: 'e1',
+      description: 'Planning',
+      startTime: originalStart.toISOString(),
+      endTime: null,
+      durationSeconds: null,
+      isBillable: true,
+      userId: 'u1',
+      projectId: 'p1',
+      taskId: 't1',
+      createdAt: '',
+      updatedAt: '',
+    };
+    component.runningEntry.set(running);
+    component.timeEntries.set([running]);
+    component.runningTimerEdit.set({
+      projectId: 'p1',
+      taskId: 't1',
+      startTime: toLocalDateTime(originalStart),
+      originalStartTime: originalStart.toISOString(),
+    });
+
+    component.onRunningStartTimeChange(toLocalDateTime(changedStart));
+    httpMock
+      .expectOne((req) => req.method === 'PATCH' && req.url.endsWith('/time-entries/e1'))
+      .flush({ error: 'Could not save' }, { status: 500, statusText: 'Server error' });
+
+    expect(component.runningEntry()?.startTime).toBe(originalStart.toISOString());
+    expect(component.timeEntries()[0].startTime).toBe(originalStart.toISOString());
+    expect(component.runningTimerSaveStatus()).toBe('error');
+    expect(component.errorMessage()).toContain('Could not save changes to the running timer');
   });
 
   it('keeps the server start seconds and milliseconds when displaying and stopping a timer', () => {

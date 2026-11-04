@@ -64,11 +64,16 @@ export class Dashboard implements OnInit {
   private readonly dashboardReminders = inject(DashboardReminders);
   private readonly destroyRef = inject(DestroyRef);
   private readonly entryEditSaveRequests = new Subject<TimeEntryEdit>();
-  private readonly runningTaskSaveRequests = new Subject<{ entryId: string; taskId: string }>();
+  private readonly runningTimerSaveRequests = new Subject<{
+    entryId: string;
+    changes: Partial<Pick<TimeEntryDto, 'taskId' | 'startTime'>>;
+    revision: number;
+  }>();
   private readonly savedEntryEditSnapshots = new Map<string, TimeEntryEdit>();
   private readonly queuedEntryEditSnapshots = new Map<string, TimeEntryEdit>();
   private readonly pendingEntryEditSaveCounts = new Map<string, number>();
   private entryEditSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private runningTimerSaveRevision = 0;
 
   readonly description = signal('');
   readonly timeEntries = signal<TimeEntryDto[]>([]);
@@ -121,7 +126,7 @@ export class Dashboard implements OnInit {
   readonly runningEntry = signal<TimeEntryDto | null>(null);
   readonly runningTimerEdit = signal<RunningTimerEdit | null>(null);
   readonly runningTimerSaveStatus = signal<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  readonly isSavingRunningTask = computed(() => this.runningTimerSaveStatus() === 'saving');
+  readonly isSavingRunningTimer = computed(() => this.runningTimerSaveStatus() === 'saving');
   readonly runningTasks = signal<TaskDto[]>([]);
   readonly projects = signal<ProjectDto[]>([]);
   readonly tasks = signal<TaskDto[]>([]);
@@ -199,10 +204,10 @@ export class Dashboard implements OnInit {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe();
-    this.runningTaskSaveRequests
+    this.runningTimerSaveRequests
       .pipe(
-        concatMap(({ entryId, taskId }) =>
-          this.timeEntryService.update(entryId, { taskId }).pipe(
+        concatMap(({ entryId, changes, revision }) =>
+          this.timeEntryService.update(entryId, changes).pipe(
             tap(({ timeEntry }) => {
               const previousEntry =
                 this.timeEntries().find((entry) => entry.id === entryId) ?? this.runningEntry();
@@ -213,7 +218,8 @@ export class Dashboard implements OnInit {
                   this.projects().find((project) => project.id === timeEntry.projectId) ??
                   previousEntry?.project,
                 task:
-                  this.runningTasks().find((task) => task.id === taskId) ?? previousEntry?.task,
+                  this.runningTasks().find((task) => task.id === timeEntry.taskId) ??
+                  previousEntry?.task,
               };
               this.runningEntry.update((running) =>
                 running?.id === entryId ? savedEntry : running,
@@ -221,19 +227,31 @@ export class Dashboard implements OnInit {
               this.timeEntries.update((entries) =>
                 entries.map((entry) => (entry.id === entryId ? savedEntry : entry)),
               );
-              if (this.runningTimerEdit()?.taskId === taskId) {
-                this.runningTimerEdit.update((draft) =>
-                  draft ? { ...draft, projectId: savedEntry.projectId ?? '' } : null,
-                );
+              this.runningTimerEdit.update((draft) => {
+                if (!draft || this.runningEntry()?.id !== entryId) {
+                  return draft;
+                }
+                return {
+                  ...draft,
+                  ...(changes.taskId !== undefined && draft.taskId === changes.taskId
+                    ? { projectId: savedEntry.projectId ?? '' }
+                    : {}),
+                  ...(changes.startTime !== undefined &&
+                  draft.startTime === this.toLocalDateTime(timeEntry.startTime)
+                    ? { originalStartTime: timeEntry.startTime }
+                    : {}),
+                };
+              });
+              if (revision === this.runningTimerSaveRevision && this.runningEntry()?.id === entryId) {
                 this.runningTimerSaveStatus.set('saved');
+                this.errorMessage.set(null);
               }
-              this.errorMessage.set(null);
             }),
             catchError(() => {
-              this.runningTimerSaveStatus.set('error');
-              this.errorMessage.set(
-                'Could not save the selected task for the running timer. Try again.',
-              );
+              if (revision === this.runningTimerSaveRevision && this.runningEntry()?.id === entryId) {
+                this.runningTimerSaveStatus.set('error');
+                this.errorMessage.set('Could not save changes to the running timer. Try again.');
+              }
               return EMPTY;
             }),
           ),
@@ -499,12 +517,52 @@ export class Dashboard implements OnInit {
       return;
     }
 
-    this.runningTimerSaveStatus.set('saving');
-    this.runningTaskSaveRequests.next({ entryId: running.id, taskId });
+    this.queueRunningTimerSave(running.id, { taskId });
   }
 
   updateRunningTimerDraft(changes: Partial<RunningTimerEdit>): void {
     this.runningTimerEdit.update((draft) => (draft ? { ...draft, ...changes } : null));
+  }
+
+  onRunningStartTimeChange(startTime: string): void {
+    const draft = this.runningTimerEdit();
+    const running = this.runningEntry();
+    if (!draft || !running || !startTime) {
+      return;
+    }
+
+    const changed = draft.startTime !== startTime;
+    if (!changed && this.runningTimerSaveStatus() !== 'error') {
+      return;
+    }
+
+    const updatedDraft = { ...draft, startTime };
+    this.updateRunningTimerDraft({ startTime });
+    const parsedStart = this.getRunningStartTime(updatedDraft);
+    if (Number.isNaN(parsedStart.getTime())) {
+      this.runningTimerSaveRevision++;
+      this.runningTimerSaveStatus.set('error');
+      this.errorMessage.set('Enter a valid start date and time.');
+      return;
+    }
+    if (parsedStart >= new Date()) {
+      this.runningTimerSaveRevision++;
+      this.runningTimerSaveStatus.set('error');
+      this.errorMessage.set('Start time must be before now.');
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.queueRunningTimerSave(running.id, { startTime: parsedStart.toISOString() });
+  }
+
+  private queueRunningTimerSave(
+    entryId: string,
+    changes: Partial<Pick<TimeEntryDto, 'taskId' | 'startTime'>>,
+  ): void {
+    const revision = ++this.runningTimerSaveRevision;
+    this.runningTimerSaveStatus.set('saving');
+    this.runningTimerSaveRequests.next({ entryId, changes, revision });
   }
 
   endAndSaveRunningTimer(): void {

@@ -39,22 +39,22 @@
         ariaLabel="Start time for running timer"
         [timeOnly]="true"
         [value]="runningTimerEdit()?.startTime ?? ''"
-        (valueChange)="updateRunningTimerDraft({ startTime: $event })"
+        (valueChange)="onRunningStartTimeChange($event)"
       />
     </div>
     <div class="running-timer-right">
       <span class="running-time-label">Running time</span>
       <time class="running-time-value">{{ runningDuration() }}</time>
       @if (runningTimerSaveStatus() === 'saving') {
-        <span class="running-time-label" role="status">Saving task…</span>
+        <span class="running-time-label" role="status">Saving changes…</span>
       } @else if (runningTimerSaveStatus() === 'saved') {
-        <span class="running-time-label" role="status">Task saved</span>
+        <span class="running-time-label" role="status">Changes saved</span>
       }
       <button
         class="btn btn-danger"
         type="button"
         (click)="endAndSaveRunningTimer()"
-        [disabled]="!runningTimerEdit()?.taskId || isSubmitting() || isSavingRunningTask()"
+        [disabled]="!runningTimerEdit()?.taskId || isSubmitting() || isSavingRunningTimer()"
       >
         End
       </button>
