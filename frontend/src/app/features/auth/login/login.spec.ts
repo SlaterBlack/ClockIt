@@ -23,4 +23,12 @@ describe('Login', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('matches the dashboard brand wordmark and icon size', () => {
+    fixture.detectChanges();
+
+    const brand = fixture.nativeElement.querySelector('.auth-brand');
+    expect(brand.querySelector('img').getAttribute('width')).toBe('32');
+    expect(brand.querySelector('.auth-brand-accent').textContent).toBe('It');
+  });
 });
