@@ -25,6 +25,9 @@
         </button>
         @if (isAccountMenuOpen()) {
           <div class="account-menu-panel" role="menu">
+            @if (!isStandalone()) {
+              <button type="button" role="menuitem" (click)="installApp()">Install app</button>
+            }
             <a routerLink="/profile" role="menuitem" (click)="closeAccountMenu()">My account</a>
             @if (isAdmin()) {
               <a routerLink="/notifications" role="menuitem" (click)="closeAccountMenu()"
@@ -44,6 +47,32 @@
     }
   </div>
 </header>
+
+@if (isInstallHelpOpen()) {
+  <div class="install-dialog-backdrop">
+    <section class="install-dialog" role="dialog" aria-modal="true" aria-labelledby="install-title">
+      <h2 id="install-title">Install ClockIt</h2>
+      @if (installError()) {
+        <p class="error-text" role="alert">{{ installError() }}</p>
+      }
+      @if (isAppleDevice) {
+        <p>To add ClockIt to your iPhone or iPad home screen:</p>
+        <ol>
+          <li>In Chrome, tap the three-dot menu, then <strong>Share</strong>. In Safari, tap <strong>Share</strong>.</li>
+          <li>Choose <strong>Add to Home Screen</strong>.</li>
+          <li>Tap <strong>Add</strong> to confirm.</li>
+        </ol>
+      } @else if (isAndroidDevice) {
+        <p>In Chrome, tap the three-dot menu, choose <strong>Install app</strong> (or <strong>Add to Home screen</strong>), then confirm.</p>
+      } @else {
+        <p>In Chrome, use the install icon in the address bar or choose <strong>Install ClockIt</strong> from the browser menu.</p>
+      }
+      <div class="install-dialog-actions">
+        <button class="btn btn-primary" type="button" (click)="closeInstallHelp()">Got it</button>
+      </div>
+    </section>
+  </div>
+}
 
 <main class="page">
   <router-outlet />

@@ -55,4 +55,41 @@
       outline: none;
     }
   }
+
+  .install-dialog-backdrop {
+    position: fixed;
+    z-index: 20;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: var(--space-md);
+    background: rgb(15 30 23 / 48%);
+  }
+
+  .install-dialog {
+    width: min(100%, 440px);
+    padding: var(--space-lg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-md);
+
+    h2 {
+      margin: 0 0 var(--space-sm);
+    }
+
+    ol {
+      padding-left: 1.4rem;
+    }
+
+    li + li {
+      margin-top: var(--space-xs);
+    }
+  }
+
+  .install-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--space-lg);
+  }
 }
