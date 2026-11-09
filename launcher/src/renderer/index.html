@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Web app launcher</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="launcher">
+      <header class="brand-header">
+        <img id="brand-icon" width="48" height="48" alt="">
+        <div>
+          <p class="eyebrow">AI3D DESKTOP LAUNCHER</p>
+          <h1 id="app-name">Web app</h1>
+          <p class="subtitle">Configure this frontend and its StoreIt API connection.</p>
+        </div>
+        <span id="status-badge" class="status-badge" role="status">Stopped</span>
+      </header>
+
+      <form id="settings-form">
+        <section class="settings-section" aria-labelledby="api-heading">
+          <div class="section-heading">
+            <span class="section-number">01</span>
+            <div>
+              <h2 id="api-heading">StoreIt API</h2>
+              <p>Enter the host where the shared API is running.</p>
+            </div>
+          </div>
+          <div class="field-grid api-grid">
+            <label class="field">
+              <span>Protocol</span>
+              <select id="api-scheme" name="apiScheme">
+                <option value="http">HTTP</option>
+                <option value="https">HTTPS</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>API host or IP</span>
+              <input id="api-host" name="apiHost" type="text" autocomplete="off" required placeholder="127.0.0.1">
+            </label>
+            <label class="field port-field">
+              <span>API port</span>
+              <input id="api-port" name="apiPort" type="number" min="1" max="65535" required>
+            </label>
+          </div>
+          <p class="field-help">ClockIt and ManageIt both use the StoreIt API; its database stays managed by StoreIt.</p>
+        </section>
+
+        <section class="settings-section" aria-labelledby="web-heading">
+          <div class="section-heading">
+            <span class="section-number">02</span>
+            <div>
+              <h2 id="web-heading">Web app</h2>
+              <p>Choose where this app listens on your computer.</p>
+            </div>
+          </div>
+          <div class="field-grid web-grid">
+            <label class="field">
+              <span>Listen IP address</span>
+              <input id="frontend-host" name="frontendHost" type="text" list="network-addresses" autocomplete="off" required>
+              <datalist id="network-addresses">
+                <option value="127.0.0.1">This PC only</option>
+                <option value="0.0.0.0">All interfaces (LAN)</option>
+              </datalist>
+            </label>
+            <label class="field port-field">
+              <span>Web port</span>
+              <input id="frontend-port" name="frontendPort" type="number" min="1" max="65535" required>
+            </label>
+          </div>
+          <p class="field-help">Use 127.0.0.1 for this PC only, or 0.0.0.0 to allow other devices on your network. Your firewall may need to allow the selected port.</p>
+        </section>
+
+        <div id="error-message" class="error-message" role="alert" hidden></div>
+        <div id="url-list" class="url-list" hidden></div>
+
+        <footer class="actions">
+          <button id="stop-button" class="button button-secondary" type="button" disabled>Stop</button>
+          <button id="open-button" class="button button-secondary" type="button" disabled>Open in browser</button>
+          <button id="start-button" class="button button-primary" type="submit">Save &amp; Start</button>
+        </footer>
+      </form>
+
+      <p class="tray-note">Closing this window keeps the app running in the system tray.</p>
+    </main>
+    <script src="./renderer.js"></script>
+  </body>
+</html>

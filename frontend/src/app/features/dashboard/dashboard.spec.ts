@@ -398,6 +398,117 @@ describe('Dashboard', () => {
     expect(component.isRemovingEntry()).toBe(false);
   });
 
+  it('duplicates a completed entry with its original values and refreshes the tracker', () => {
+    const startTime = new Date(component.weekStart());
+    startTime.setHours(9, 0, 0, 0);
+    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+    const entry = {
+      id: 'e1',
+      description: 'Planning',
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      durationSeconds: 3600,
+      isBillable: false,
+      userId: 'u1',
+      projectId: 'p1',
+      taskId: 't1',
+      createdAt: '',
+      updatedAt: '',
+    };
+
+    component.duplicateEntry(entry);
+
+    const request = httpMock.expectOne(
+      (req) => req.method === 'POST' && req.url.endsWith('/time-entries'),
+    );
+    expect(request.request.body).toEqual({
+      taskId: 't1',
+      description: 'Planning',
+      isBillable: false,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+    });
+    request.flush({ timeEntry: { id: 'e2' } });
+    httpMock
+      .expectOne((req) => req.method === 'GET' && req.url.endsWith('/time-entries'))
+      .flush({ timeEntries: [] });
+
+    expect(component.duplicatingEntryId()).toBeNull();
+  });
+
+  it('disables duplication for a running time entry', () => {
+    const entry = {
+      id: 'e1',
+      description: 'Planning',
+      startTime: new Date(component.weekStart()).toISOString(),
+      endTime: null,
+      durationSeconds: null,
+      isBillable: true,
+      userId: 'u1',
+      projectId: 'p1',
+      taskId: 't1',
+      createdAt: '',
+      updatedAt: '',
+    };
+    component.timeEntries.set([entry]);
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.entry-actions-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement.querySelector('.entry-actions-menu button') as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    component.duplicateEntry(entry);
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
+  it('provides delete from the entry menu and keeps the existing confirmation', () => {
+    const startTime = new Date(component.weekStart());
+    startTime.setHours(9, 0, 0, 0);
+    const entry = {
+      id: 'e1',
+      description: 'Planning',
+      startTime: startTime.toISOString(),
+      endTime: new Date(startTime.getTime() + 60 * 60 * 1000).toISOString(),
+      durationSeconds: 3600,
+      isBillable: true,
+      userId: 'u1',
+      projectId: 'p1',
+      taskId: 't1',
+      createdAt: '',
+      updatedAt: '',
+    };
+    component.timeEntries.set([entry]);
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.entry-actions-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const menuButtons = fixture.nativeElement.querySelectorAll('.entry-actions-menu button');
+    expect(menuButtons[1].textContent).toContain('Delete entry');
+    (menuButtons[1] as HTMLButtonElement).click();
+    httpMock
+      .expectOne((request) => request.url.endsWith('/projects/p1/tasks'))
+      .flush({ tasks: [] });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.entry-removal-confirmation')).not.toBeNull();
+    (fixture.nativeElement.querySelector(
+      '.entry-removal-confirmation .btn-danger',
+    ) as HTMLButtonElement).click();
+    httpMock
+      .expectOne(
+        (request) => request.method === 'DELETE' && request.url.endsWith('/time-entries/e1'),
+      )
+      .flush(null);
+    httpMock
+      .expectOne((request) => request.method === 'GET' && request.url.endsWith('/time-entries'))
+      .flush({ timeEntries: [] });
+
+    expect(component.editingEntry()).toBeNull();
+  });
+
   it('requires the manual entry to end after it starts', () => {
     component.openManualEntry();
     component.updateManualEntry({

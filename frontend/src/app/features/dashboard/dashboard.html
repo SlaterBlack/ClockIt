@@ -253,7 +253,11 @@
         </header>
         <div class="day-entry-list">
           @for (entry of day.entries; track entry.id) {
-            <div class="time-entry-item" [class.is-editing]="editingEntry()?.id === entry.id">
+            <div
+              class="time-entry-item"
+              [class.is-editing]="editingEntry()?.id === entry.id"
+              [class.has-open-actions]="openEntryActionsId() === entry.id"
+            >
               <button
                 class="entry-play-button btn btn-secondary"
                 type="button"
@@ -301,8 +305,44 @@
                   <span class="entry-duration">{{ formatDuration(entry) }}</span>
                 </div>
               </article>
+              <div class="entry-actions">
+                <button
+                  class="entry-actions-trigger"
+                  type="button"
+                  [attr.aria-label]="'Actions for ' + (entry.description || entry.task?.name || 'time entry')"
+                  [attr.aria-expanded]="openEntryActionsId() === entry.id"
+                  [attr.aria-controls]="'entry-actions-' + entry.id"
+                  (click)="toggleEntryActions(entry.id)"
+                >
+                  <span aria-hidden="true">…</span>
+                </button>
+                @if (openEntryActionsId() === entry.id) {
+                  <div class="entry-actions-menu" [id]="'entry-actions-' + entry.id">
+                    <button
+                      type="button"
+                      [disabled]="!entry.endTime || !entry.taskId || duplicatingEntryId() !== null"
+                      [attr.title]="
+                        !entry.endTime
+                          ? 'End the timer before duplicating'
+                          : !entry.taskId
+                            ? 'Assign a task before duplicating'
+                            : null
+                      "
+                      (click)="duplicateEntry(entry)"
+                    >
+                      {{ duplicatingEntryId() === entry.id ? 'Duplicating…' : 'Duplicate entry' }}
+                    </button>
+                    <button type="button" (click)="deleteEntryFromActions(entry)">
+                      Delete entry
+                    </button>
+                  </div>
+                }
+              </div>
               @if (editingEntry()?.id === entry.id) {
-                <div class="entry-edit-form" (focusout)="onEntryEditFocusOut($event)">
+                <div
+                  class="entry-edit-form"
+                  (focusout)="onEntryEditFocusOut($event)"
+                >
                   <div class="entry-edit-fields">
                     <select
                       [ngModel]="editingEntry()?.projectId"

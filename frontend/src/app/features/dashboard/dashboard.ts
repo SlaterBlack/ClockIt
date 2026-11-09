@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, OnInit, computed, inject, signal } from '@angular/core';
 import { EMPTY, Observable, Subject, interval } from 'rxjs';
 import { catchError, concatMap, finalize, tap } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
@@ -152,6 +152,8 @@ export class Dashboard implements OnInit {
   readonly entrySaveStatus = signal<'idle' | 'saving' | 'saved'>('idle');
   readonly entryPendingRemovalId = signal<string | null>(null);
   readonly isRemovingEntry = signal(false);
+  readonly openEntryActionsId = signal<string | null>(null);
+  readonly duplicatingEntryId = signal<string | null>(null);
   readonly isManualEntryOpen = signal(false);
   readonly manualEntry = signal<ManualEntryDraft | null>(null);
   readonly manualEntryDateTimeValue = computed(() => {
@@ -731,6 +733,62 @@ export class Dashboard implements OnInit {
         }
       },
     });
+  }
+
+  toggleEntryActions(entryId: string): void {
+    this.openEntryActionsId.update((openId) => (openId === entryId ? null : entryId));
+  }
+
+  closeEntryActions(): void {
+    this.openEntryActionsId.set(null);
+  }
+
+  deleteEntryFromActions(entry: TimeEntryDto): void {
+    this.closeEntryActions();
+    if (this.editingEntry()?.id !== entry.id) {
+      this.toggleEntryEdit(entry);
+    }
+    this.requestEntryRemoval(entry);
+  }
+
+  duplicateEntry(entry: TimeEntryDto): void {
+    this.closeEntryActions();
+    if (!entry.endTime || !entry.taskId || this.duplicatingEntryId()) {
+      return;
+    }
+
+    this.duplicatingEntryId.set(entry.id);
+    this.errorMessage.set(null);
+    this.timeEntryService
+      .create({
+        taskId: entry.taskId,
+        description: entry.description,
+        isBillable: entry.isBillable,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+      })
+      .subscribe({
+        next: () => {
+          this.duplicatingEntryId.set(null);
+          this.refresh();
+        },
+        error: () => {
+          this.duplicatingEntryId.set(null);
+          this.errorMessage.set('Could not duplicate the time entry. Try again.');
+        },
+      });
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (!(event.target instanceof Element) || !event.target.closest('.entry-actions')) {
+      this.closeEntryActions();
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.closeEntryActions();
   }
 
   updateEntryDraft(changes: Partial<TimeEntryEdit>, scheduleSave = true): void {
