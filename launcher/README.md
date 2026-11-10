@@ -4,7 +4,7 @@ This repository contains ClockIt’s independent Windows and Linux launcher. It 
 
 ## Development
 
-Install this launcher’s dependencies and build the frontend from the repository root:
+Install the launcher dependencies, then run `build:sites`; that script installs the frontend dependencies from `frontend/package-lock.json` before building it:
 
 ```bash
 cd launcher

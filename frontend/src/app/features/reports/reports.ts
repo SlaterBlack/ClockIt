@@ -1,6 +1,14 @@
 import { DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  HostListener,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { interval } from 'rxjs';
 import type { ReportUser } from '../../core/models/report.model';
@@ -31,7 +39,7 @@ export class Reports implements OnInit {
 
   readonly reportUsers = signal<ReportUser[]>([]);
   readonly currentUserId = signal('');
-  readonly selectedUserId = signal('');
+  readonly selectedUserIds = signal<string[]>([]);
   readonly timeEntries = signal<TimeEntryDto[]>([]);
   readonly datePreset = signal<DatePreset>('this-week');
   readonly startDate = signal('');
@@ -45,6 +53,27 @@ export class Reports implements OnInit {
   readonly pageSizeOptions = [25, 50, 100, 150] as const;
   readonly pageSize = signal<number>(25);
   readonly currentPage = signal(1);
+  readonly isUserMenuOpen = signal(false);
+  readonly allUsersSelected = computed(
+    () =>
+      this.reportUsers().length > 0 && this.selectedUserIds().length === this.reportUsers().length,
+  );
+  readonly userFilterLabel = computed(() => {
+    const userIds = this.selectedUserIds();
+    if (userIds.length === 0) {
+      return 'No users selected';
+    }
+    if (this.allUsersSelected()) {
+      return 'All users';
+    }
+    if (userIds.length === 1) {
+      if (userIds[0] === this.currentUserId()) {
+        return 'Only me';
+      }
+      return this.reportUsers().find((user) => user.id === userIds[0])?.name ?? '1 user selected';
+    }
+    return `${userIds.length} users selected`;
+  });
 
   readonly projectOptions = computed(() => {
     const projects = new Map<string, string>();
@@ -77,6 +106,7 @@ export class Reports implements OnInit {
   readonly filteredEntries = computed(() => {
     const startDate = this.startDate();
     const endDate = this.endDate();
+    const selectedUserIds = new Set(this.selectedUserIds());
     if (startDate && endDate && startDate > endDate) {
       return [];
     }
@@ -89,6 +119,7 @@ export class Reports implements OnInit {
         }
         const entryDate = localDateKey(startTime);
         return (
+          selectedUserIds.has(entry.userId) &&
           (!startDate || entryDate >= startDate) &&
           (!endDate || entryDate <= endDate) &&
           (!this.projectFilter() || entry.projectId === this.projectFilter()) &&
@@ -149,8 +180,7 @@ export class Reports implements OnInit {
       next: ({ users, currentUserId }) => {
         this.reportUsers.set(users);
         this.currentUserId.set(currentUserId);
-        this.selectedUserId.set(currentUserId);
-        this.loadTimeEntries(currentUserId);
+        this.setSelectedUsers([currentUserId]);
       },
       error: () => {
         this.errorMessage.set('Could not load report users. Try refreshing the page.');
@@ -159,10 +189,51 @@ export class Reports implements OnInit {
     });
   }
 
-  onUserFilterChange(userId: string): void {
+  onUserFilterChange(userId: string, checked: boolean): void {
+    const selectedUserIds = new Set(this.selectedUserIds());
+    if (checked) {
+      selectedUserIds.add(userId);
+    } else {
+      selectedUserIds.delete(userId);
+    }
+    this.setSelectedUsers([...selectedUserIds]);
+  }
+
+  toggleUserMenu(): void {
+    this.isUserMenuOpen.update((isOpen) => !isOpen);
+  }
+
+  closeUserMenu(): void {
+    this.isUserMenuOpen.set(false);
+  }
+
+  selectOnlyUser(userId: string): void {
+    this.setSelectedUsers([userId]);
+    this.closeUserMenu();
+  }
+
+  selectOnlyMe(): void {
+    this.selectOnlyUser(this.currentUserId());
+  }
+
+  selectAllUsers(): void {
+    this.setSelectedUsers(this.reportUsers().map((user) => user.id));
+    this.closeUserMenu();
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.closeUserMenu();
+  }
+
+  private setSelectedUsers(userIds: string[]): void {
+    const selected = new Set(userIds);
+    const orderedUserIds = this.reportUsers()
+      .filter((user) => selected.has(user.id))
+      .map((user) => user.id);
     this.currentPage.set(1);
-    this.selectedUserId.set(userId);
-    this.loadTimeEntries(userId);
+    this.selectedUserIds.set(orderedUserIds);
+    this.loadTimeEntries(orderedUserIds);
   }
 
   setDatePreset(preset: DatePreset): void {
@@ -244,14 +315,13 @@ export class Reports implements OnInit {
   onImportCompleted(): void {
     this.currentPage.set(1);
     const userId = this.currentUserId();
-    this.selectedUserId.set(userId);
     this.datePreset.set('custom');
     this.startDate.set('');
     this.endDate.set('');
     this.projectFilter.set('');
     this.taskFilter.set('');
     this.billableFilter.set('all');
-    this.loadTimeEntries(userId);
+    this.setSelectedUsers([userId]);
   }
 
   formatDuration(totalSeconds: number): string {
@@ -271,10 +341,17 @@ export class Reports implements OnInit {
     return this.durationSeconds(entry);
   }
 
-  private loadTimeEntries(userId: string): void {
+  private loadTimeEntries(userIds: string[]): void {
     const requestId = ++this.reportRequestId;
-    this.isLoading.set(true);
     this.errorMessage.set(null);
+    if (userIds.length === 0) {
+      this.timeEntries.set([]);
+      this.isLoading.set(false);
+      return;
+    }
+
+    this.isLoading.set(true);
+    const userId = userIds.length === 1 ? userIds[0] : 'all';
     this.reportService
       .listTimeEntries(userId)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -283,7 +360,8 @@ export class Reports implements OnInit {
           if (requestId !== this.reportRequestId) {
             return;
           }
-          this.timeEntries.set(timeEntries);
+          const selectedUserIds = new Set(userIds);
+          this.timeEntries.set(timeEntries.filter((entry) => selectedUserIds.has(entry.userId)));
           this.isLoading.set(false);
         },
         error: () => {

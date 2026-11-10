@@ -70,7 +70,7 @@ describe('time report workbook', () => {
     expect(summaryXml).toContain('TOIL Used');
     expect(summaryXml).toContain('Alex Doe');
     expect(summaryXml).toContain('Blake Roe');
-    expect(summaryXml).toContain('All users');
+    expect(summaryXml).toContain('Report total');
     expect(summaryXml).toContain('<v>2.5</v>');
     expect(summaryXml).toContain('<v>5</v>');
     expect(summaryXml.match(/<v>1<\/v>/g)).toHaveLength(2);

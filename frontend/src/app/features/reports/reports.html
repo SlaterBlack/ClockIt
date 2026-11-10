@@ -2,127 +2,167 @@
 <p class="reports-intro">Review tracked time and billable hours for the selected period.</p>
 
 <section class="card report-filters" aria-label="Report filters">
-  <div class="date-presets" role="group" aria-label="Date range">
-    <button
-      class="btn btn-secondary"
-      type="button"
-      [class.is-selected]="datePreset() === 'today'"
-      [attr.aria-pressed]="datePreset() === 'today'"
-      (click)="setDatePreset('today')"
-    >
-      Today
-    </button>
-    <button
-      class="btn btn-secondary"
-      type="button"
-      [class.is-selected]="datePreset() === 'this-week'"
-      [attr.aria-pressed]="datePreset() === 'this-week'"
-      (click)="setDatePreset('this-week')"
-    >
-      This week
-    </button>
-    <button
-      class="btn btn-secondary"
-      type="button"
-      [class.is-selected]="datePreset() === 'last-week'"
-      [attr.aria-pressed]="datePreset() === 'last-week'"
-      (click)="setDatePreset('last-week')"
-    >
-      Last week
-    </button>
-    <button
-      class="btn btn-secondary"
-      type="button"
-      [class.is-selected]="datePreset() === 'last-month'"
-      [attr.aria-pressed]="datePreset() === 'last-month'"
-      (click)="setDatePreset('last-month')"
-    >
-      Last month
-    </button>
-    <button
-      class="btn btn-secondary"
-      type="button"
-      [class.is-selected]="datePreset() === 'year-to-date'"
-      [attr.aria-pressed]="datePreset() === 'year-to-date'"
-      (click)="setDatePreset('year-to-date')"
-    >
-      Year to date
-    </button>
-  </div>
+  <div class="report-filter-row">
+    <div class="date-presets" role="group" aria-label="Date range">
+      <button
+        class="btn btn-secondary"
+        type="button"
+        [class.is-selected]="datePreset() === 'today'"
+        [attr.aria-pressed]="datePreset() === 'today'"
+        (click)="setDatePreset('today')"
+      >
+        Today
+      </button>
+      <button
+        class="btn btn-secondary"
+        type="button"
+        [class.is-selected]="datePreset() === 'this-week'"
+        [attr.aria-pressed]="datePreset() === 'this-week'"
+        (click)="setDatePreset('this-week')"
+      >
+        This week
+      </button>
+      <button
+        class="btn btn-secondary"
+        type="button"
+        [class.is-selected]="datePreset() === 'last-week'"
+        [attr.aria-pressed]="datePreset() === 'last-week'"
+        (click)="setDatePreset('last-week')"
+      >
+        Last week
+      </button>
+      <button
+        class="btn btn-secondary"
+        type="button"
+        [class.is-selected]="datePreset() === 'last-month'"
+        [attr.aria-pressed]="datePreset() === 'last-month'"
+        (click)="setDatePreset('last-month')"
+      >
+        Last month
+      </button>
+      <button
+        class="btn btn-secondary"
+        type="button"
+        [class.is-selected]="datePreset() === 'year-to-date'"
+        [attr.aria-pressed]="datePreset() === 'year-to-date'"
+        (click)="setDatePreset('year-to-date')"
+      >
+        Year to date
+      </button>
+    </div>
 
-  <div class="report-filter-fields">
-    <label>
-      Team members
-      <select
+    <div
+      class="report-user-filter"
+      (click)="$event.stopPropagation()"
+      (keydown.escape)="closeUserMenu()"
+    >
+      <span class="report-user-label">Team members</span>
+      <button
+        class="btn btn-secondary report-user-trigger"
+        type="button"
         aria-label="Filter by team member"
-        [ngModel]="selectedUserId()"
-        (ngModelChange)="onUserFilterChange($event)"
+        aria-haspopup="true"
+        aria-controls="report-user-menu"
+        [attr.aria-expanded]="isUserMenuOpen()"
+        (click)="toggleUserMenu()"
       >
-        <option [value]="currentUserId()">Only me</option>
-        <option value="all">All users</option>
-        @for (user of reportUsers(); track user.id) {
-          @if (user.id !== currentUserId()) {
-            <option [value]="user.id">{{ user.name }}</option>
+        {{ userFilterLabel() }}
+        <span aria-hidden="true">⌄</span>
+      </button>
+      @if (isUserMenuOpen()) {
+        <div class="report-user-menu" id="report-user-menu" role="group" aria-label="Team members">
+          <div class="report-user-menu-actions">
+            <button type="button" (click)="selectOnlyMe()">Only me</button>
+            <button type="button" (click)="selectAllUsers()">All users</button>
+          </div>
+          <div class="report-user-options">
+            @for (user of reportUsers(); track user.id) {
+              <div
+                class="report-user-option"
+                [class.is-selected]="selectedUserIds().includes(user.id)"
+              >
+                <input
+                  type="checkbox"
+                  [attr.aria-label]="'Include ' + user.name"
+                  [ngModel]="selectedUserIds().includes(user.id)"
+                  (ngModelChange)="onUserFilterChange(user.id, $event)"
+                />
+                <button
+                  class="report-user-name"
+                  type="button"
+                  [attr.aria-label]="'Select only ' + user.name"
+                  (click)="selectOnlyUser(user.id)"
+                >
+                  {{ user.name }}{{ user.id === currentUserId() ? ' (you)' : '' }}
+                </button>
+              </div>
+            }
+          </div>
+          <span class="report-user-count">
+            {{ selectedUserIds().length }} of {{ reportUsers().length }} selected
+          </span>
+        </div>
+      }
+    </div>
+
+    <div class="report-filter-fields">
+      <label>
+        From
+        <input
+          type="date"
+          aria-label="Report start date"
+          [ngModel]="startDate()"
+          (ngModelChange)="startDate.set($event); onDateChange()"
+        />
+      </label>
+      <label>
+        To
+        <input
+          type="date"
+          aria-label="Report end date"
+          [ngModel]="endDate()"
+          (ngModelChange)="endDate.set($event); onDateChange()"
+        />
+      </label>
+      <label>
+        Project
+        <select
+          aria-label="Filter by project"
+          [ngModel]="projectFilter()"
+          (ngModelChange)="onProjectFilterChange($event)"
+        >
+          <option value="">All projects</option>
+          @for (project of projectOptions(); track project.id) {
+            <option [value]="project.id">{{ project.name }}</option>
           }
-        }
-      </select>
-    </label>
-    <label>
-      From
-      <input
-        type="date"
-        aria-label="Report start date"
-        [ngModel]="startDate()"
-        (ngModelChange)="startDate.set($event); onDateChange()"
-      />
-    </label>
-    <label>
-      To
-      <input
-        type="date"
-        aria-label="Report end date"
-        [ngModel]="endDate()"
-        (ngModelChange)="endDate.set($event); onDateChange()"
-      />
-    </label>
-    <label>
-      Project
-      <select
-        aria-label="Filter by project"
-        [ngModel]="projectFilter()"
-        (ngModelChange)="onProjectFilterChange($event)"
-      >
-        <option value="">All projects</option>
-        @for (project of projectOptions(); track project.id) {
-          <option [value]="project.id">{{ project.name }}</option>
-        }
-      </select>
-    </label>
-    <label>
-      Task
-      <select
-        aria-label="Filter by task"
-        [ngModel]="taskFilter()"
-        (ngModelChange)="onTaskFilterChange($event)"
-      >
-        <option value="">All tasks</option>
-        @for (task of taskOptions(); track task.id) {
-          <option [value]="task.id">{{ task.name }}</option>
-        }
-      </select>
-    </label>
-    <label>
-      Billable
-      <select
-        aria-label="Filter by billable status"
-        [ngModel]="billableFilter()"
-        (ngModelChange)="onBillableFilterChange($event)"
-      >
-        <option value="all">All entries</option>
-        <option value="billable">Billable</option>
-        <option value="non-billable">Non-billable</option>
-      </select>
-    </label>
+        </select>
+      </label>
+      <label>
+        Task
+        <select
+          aria-label="Filter by task"
+          [ngModel]="taskFilter()"
+          (ngModelChange)="onTaskFilterChange($event)"
+        >
+          <option value="">All tasks</option>
+          @for (task of taskOptions(); track task.id) {
+            <option [value]="task.id">{{ task.name }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        Billable
+        <select
+          aria-label="Filter by billable status"
+          [ngModel]="billableFilter()"
+          (ngModelChange)="onBillableFilterChange($event)"
+        >
+          <option value="all">All entries</option>
+          <option value="billable">Billable</option>
+          <option value="non-billable">Non-billable</option>
+        </select>
+      </label>
+    </div>
   </div>
 </section>
 
@@ -162,6 +202,7 @@
 
   <app-report-export-panel
     [entries]="filteredEntries()"
+    [userIds]="selectedUserIds()"
     [startDate]="startDate()"
     [endDate]="endDate()"
     (importCompleted)="onImportCompleted()"
@@ -266,7 +307,10 @@
       </div>
       @if (totalPages() > 1) {
         <nav class="report-pagination" aria-label="Detailed report pages">
-          <span>Showing {{ pageRangeStart() }}–{{ pageRangeEnd() }} of {{ filteredEntries().length }}</span>
+          <span
+            >Showing {{ pageRangeStart() }}–{{ pageRangeEnd() }} of
+            {{ filteredEntries().length }}</span
+          >
           <div>
             <button
               class="btn btn-secondary"

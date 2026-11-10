@@ -37,6 +37,7 @@ describe('ReportExportPanel', () => {
 
   const setEntries = (entries: TimeEntry[]) => {
     fixture.componentRef.setInput('entries', entries);
+    fixture.componentRef.setInput('userIds', [...new Set(entries.map((entry) => entry.userId))]);
     fixture.componentRef.setInput('startDate', '2026-10-19');
     fixture.componentRef.setInput('endDate', '2026-10-25');
     fixture.detectChanges();
@@ -68,32 +69,18 @@ describe('ReportExportPanel', () => {
     vi.restoreAllMocks();
   });
 
-  it('downloads a two-sheet report workbook for all users in the selected date range', async () => {
+  it('exports the current filtered entries without reloading all users', async () => {
     setEntries([makeEntry('e1', true, new Date(2026, 9, 19, 10).toISOString())]);
 
     findButton('Export workbook').click();
-    const request = httpMock.expectOne(
-      (req) => req.url.endsWith('/reports/time-entries') && req.params.get('userId') === 'all',
-    );
-    const annualLeaveEntry = {
-      ...makeEntry('e2', true, new Date(2026, 9, 20, 11).toISOString()),
-      userId: 'u2',
-      user: { id: 'u2', name: 'Blake Roe' },
-      task: { id: 't2', name: 'Annual Leave', payType: 'annual-leave' as const },
-    };
-    request.flush({
-      timeEntries: [
-        makeEntry('e1', true, new Date(2026, 9, 19, 10).toISOString()),
-        annualLeaveEntry,
-      ],
-    });
 
     expect(downloads[0].filename).toBe('time-report_2026-10-19_to_2026-10-25.xlsx');
+    httpMock.expectNone((req) => req.url.endsWith('/reports/time-entries'));
     const files = unzipSync(new Uint8Array(await downloads[0].blob.arrayBuffer()));
     const summaryXml = strFromU8(files['xl/worksheets/sheet1.xml']);
     const detailsXml = strFromU8(files['xl/worksheets/sheet2.xml']);
     expect(summaryXml).toContain('Alex Doe');
-    expect(summaryXml).toContain('Blake Roe');
+    expect(summaryXml).not.toContain('Blake Roe');
     expect(summaryXml).toContain('Total Paid Hours');
     expect(summaryXml).toContain('Hourly Wage');
     expect(summaryXml).toContain('Annual Leave');
@@ -101,7 +88,6 @@ describe('ReportExportPanel', () => {
     expect(summaryXml).toContain('Sick Leave');
     expect(summaryXml).toContain('TOIL Accrued');
     expect(summaryXml).toContain('TOIL Used');
-    expect(summaryXml).toContain('All users');
     expect(detailsXml).toContain('Website');
   });
 

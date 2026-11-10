@@ -56,7 +56,7 @@ describe('Reports', () => {
     expect(component.nonBillableDurationSeconds()).toBe(7_200);
     expect(component.projectSummaries().map((project) => project.id)).toEqual(['p1', 'p2']);
     expect(fixture.nativeElement.querySelectorAll('tbody tr').length).toBe(3);
-    expect(component.selectedUserId()).toBe('u1');
+    expect(component.selectedUserIds()).toEqual(['u1']);
     expect(fixture.nativeElement.querySelector('tbody').textContent).toContain('Current User');
   });
 
@@ -178,7 +178,7 @@ describe('Reports', () => {
     expect(component.filteredEntries().map((entry) => entry.id)).toEqual(['e3']);
   });
 
-  it('loads all users or a selected user and displays the entry owner', () => {
+  it('loads multiple selected users and filters entries when one member is deselected', () => {
     httpMock
       .expectOne((request) => request.url.endsWith('/reports/users'))
       .flush({
@@ -191,10 +191,25 @@ describe('Reports', () => {
     httpMock
       .expectOne((request) => request.url.endsWith('/reports/time-entries'))
       .flush({ timeEntries: [] });
+    fixture.detectChanges();
 
     component.startDate.set('2026-10-19');
     component.endDate.set('2026-10-20');
-    component.onUserFilterChange('all');
+    (
+      fixture.nativeElement.querySelector(
+        '[aria-label="Filter by team member"]',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    const otherUserCheckbox = fixture.nativeElement.querySelector(
+      '[aria-label="Include Other User"]',
+    ) as HTMLInputElement;
+    expect(
+      otherUserCheckbox.closest('.report-user-option')?.classList.contains('is-selected'),
+    ).toBe(false);
+    otherUserCheckbox.checked = true;
+    otherUserCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+    fixture.detectChanges();
     const allUsersRequest = httpMock.expectOne(
       (request) =>
         request.url.endsWith('/reports/time-entries') && request.params.get('userId') === 'all',
@@ -221,7 +236,12 @@ describe('Reports', () => {
     ]);
     expect(fixture.nativeElement.querySelector('tbody').textContent).toContain('Other User');
 
-    component.onUserFilterChange('u2');
+    (
+      fixture.nativeElement.querySelector(
+        '[aria-label="Select only Other User"]',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
     const selectedUserRequest = httpMock.expectOne(
       (request) =>
         request.url.endsWith('/reports/time-entries') && request.params.get('userId') === 'u2',
@@ -236,7 +256,58 @@ describe('Reports', () => {
       ],
     });
     fixture.detectChanges();
+    expect(component.selectedUserIds()).toEqual(['u2']);
     expect(component.filteredEntries().map((entry) => entry.user?.name)).toEqual(['Other User']);
+
+    (
+      fixture.nativeElement.querySelector(
+        '[aria-label="Filter by team member"]',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    [...fixture.nativeElement.querySelectorAll('button')]
+      .find((button) => button.textContent.trim() === 'All users')
+      ?.click();
+    fixture.detectChanges();
+    const allUsersSelectionRequest = httpMock.expectOne(
+      (request) =>
+        request.url.endsWith('/reports/time-entries') && request.params.get('userId') === 'all',
+    );
+    allUsersSelectionRequest.flush({ timeEntries: [] });
+    expect(component.selectedUserIds()).toEqual(['u1', 'u2']);
+  });
+
+  it('clears entries when no team members are selected', () => {
+    httpMock
+      .expectOne((request) => request.url.endsWith('/reports/users'))
+      .flush({
+        users: [{ id: 'u1', name: 'Current User' }],
+        currentUserId: 'u1',
+      });
+    httpMock
+      .expectOne((request) => request.url.endsWith('/reports/time-entries'))
+      .flush({
+        timeEntries: [makeEntry('e1', new Date(2026, 9, 19, 9), 3600, true, 'p1', 't1', 'Design')],
+      });
+    fixture.detectChanges();
+
+    (
+      fixture.nativeElement.querySelector(
+        '[aria-label="Filter by team member"]',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    const currentUserCheckbox = fixture.nativeElement.querySelector(
+      '[aria-label="Include Current User"]',
+    ) as HTMLInputElement;
+    currentUserCheckbox.checked = false;
+    currentUserCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(component.selectedUserIds()).toEqual([]);
+    expect(component.filteredEntries()).toEqual([]);
+    expect(component.isLoading()).toBe(false);
+    httpMock.expectNone((request) => request.url.endsWith('/reports/time-entries'));
   });
 
   it('reports errors when the time-entry request fails', () => {

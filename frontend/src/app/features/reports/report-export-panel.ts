@@ -13,7 +13,6 @@ import {
   completedEntries,
   downloadBlobFile,
   downloadTextFile,
-  entriesInDateRange,
 } from './report-export';
 import { MAX_IMPORT_FILE_BYTES, parseTimeEntryCsv } from './report-import';
 import { buildTimeReportWorkbook } from './report-workbook';
@@ -30,6 +29,7 @@ export class ReportExportPanel {
   private readonly auth = inject(Auth);
 
   readonly entries = input.required<TimeEntry[]>();
+  readonly userIds = input<string[]>([]);
   readonly startDate = input('');
   readonly endDate = input('');
 
@@ -62,36 +62,29 @@ export class ReportExportPanel {
     const startDate = this.startDate();
     const endDate = this.endDate();
     const suffix = startDate && endDate ? `_${startDate}_to_${endDate}` : '';
+    const entries = this.entries();
 
-    this.reportService.listTimeEntries('all').subscribe({
-      next: ({ timeEntries }) => {
-        const periodEntries = entriesInDateRange(timeEntries, startDate, endDate);
-        if (!periodEntries.length) {
+    if (this.auth.isAdmin()) {
+      this.toilService.getSettings(startDate || undefined, endDate || undefined).subscribe({
+        next: (settings) =>
+          this.downloadReport(
+            entries,
+            now,
+            startDate,
+            endDate,
+            suffix,
+            this.filterToilSettings(settings),
+          ),
+        error: (error: HttpErrorResponse) => {
           this.isExportingReport.set(false);
-          this.errorMessage.set('There are no entries for any users in this date range.');
-          return;
-        }
-
-        if (this.auth.isAdmin()) {
-          this.toilService.getSettings(startDate || undefined, endDate || undefined).subscribe({
-            next: (settings) =>
-              this.downloadReport(periodEntries, now, startDate, endDate, suffix, settings),
-            error: (error: HttpErrorResponse) => {
-              this.isExportingReport.set(false);
-              this.errorMessage.set(
-                this.apiError(error, 'Could not load TOIL settings for the report.'),
-              );
-            },
-          });
-        } else {
-          this.downloadReport(periodEntries, now, startDate, endDate, suffix);
-        }
-      },
-      error: () => {
-        this.isExportingReport.set(false);
-        this.errorMessage.set("Could not load all users' entries for the report workbook.");
-      },
-    });
+          this.errorMessage.set(
+            this.apiError(error, 'Could not load TOIL settings for the report.'),
+          );
+        },
+      });
+    } else {
+      this.downloadReport(entries, now, startDate, endDate, suffix);
+    }
   }
 
   async onCsvSelected(event: Event): Promise<void> {
@@ -215,6 +208,15 @@ export class ReportExportPanel {
 
   private fileSuffix(): string {
     return this.startDate() && this.endDate() ? `_${this.startDate()}_to_${this.endDate()}` : '';
+  }
+
+  private filterToilSettings(settings: ToilSettingsResponse): ToilSettingsResponse {
+    const userIds = new Set(this.userIds());
+    return {
+      ...settings,
+      users: settings.users.filter((user) => userIds.has(user.id)),
+      usages: settings.usages.filter((usage) => userIds.has(usage.userId)),
+    };
   }
 
   private downloadReport(

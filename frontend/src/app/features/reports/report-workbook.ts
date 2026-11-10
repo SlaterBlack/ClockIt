@@ -107,7 +107,7 @@ export function buildTimeReportWorkbook(
       ];
     }),
     [
-      'All users',
+      'Report total',
       totalPaidHours(periodTotals),
       ...(toilTotals
         ? [
