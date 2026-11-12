@@ -281,6 +281,7 @@ describe('Dashboard', () => {
       taskId: 't1',
       description: 'Annual leave',
       date: '2026-10-19',
+      endDate: '2026-10-19',
       startTime: '09:00',
       endTime: '17:00',
       isBillable: false,
@@ -334,6 +335,7 @@ describe('Dashboard', () => {
     component.openManualEntry();
     component.updateManualEntry({
       date: '2026-10-19',
+      endDate: '2026-10-19',
       startTime: '09:00',
       endTime: '10:00',
     });
@@ -343,10 +345,10 @@ describe('Dashboard', () => {
     const dateTimeFields = fixture.nativeElement.querySelector(
       '.manual-entry-form .entry-date-time-fields',
     );
-    expect(dateTimeFields.querySelectorAll('app-date-time-picker')).toHaveLength(3);
-    expect(dateTimeFields.querySelectorAll('.date-only-picker')).toHaveLength(1);
+    expect(dateTimeFields.querySelectorAll('app-date-time-picker')).toHaveLength(4);
+    expect(dateTimeFields.querySelectorAll('.date-only-picker')).toHaveLength(2);
     expect(dateTimeFields.querySelectorAll('.time-only-picker')).toHaveLength(2);
-    expect(dateTimeFields.querySelectorAll('.stacked-label-picker')).toHaveLength(3);
+    expect(dateTimeFields.querySelectorAll('.stacked-label-picker')).toHaveLength(4);
     expect(dateTimeFields.querySelectorAll('.manual-time-input[type="text"]')).toHaveLength(2);
     expect(dateTimeFields.querySelector('.clear-manual-time')).not.toBeNull();
     expect(dateTimeFields.querySelector('.entry-duration-preview strong').textContent).toBe(
@@ -354,7 +356,7 @@ describe('Dashboard', () => {
     );
 
     const endTimeInput = dateTimeFields
-      .querySelectorAll('app-date-time-picker')[2]
+      .querySelectorAll('app-date-time-picker')[3]
       .querySelector('.manual-time-input') as HTMLInputElement;
     endTimeInput.value = '10:30';
     endTimeInput.dispatchEvent(new Event('input'));
@@ -380,11 +382,15 @@ describe('Dashboard', () => {
     };
 
     component.requestEntryRemoval(entry);
+    fixture.detectChanges();
 
     expect(component.entryPendingRemovalId()).toBe('e1');
+    expect(fixture.nativeElement.querySelector('[role="dialog"]')).not.toBeNull();
     httpMock.expectNone((request) => request.method === 'DELETE');
 
-    component.removeEntry(entry);
+    (
+      fixture.nativeElement.querySelector('.entry-delete-dialog .btn-danger') as HTMLButtonElement
+    ).click();
 
     const request = httpMock.expectOne(
       (req) => req.method === 'DELETE' && req.url.endsWith('/time-entries/e1'),
@@ -464,7 +470,7 @@ describe('Dashboard', () => {
     httpMock.expectNone((request) => request.method === 'POST');
   });
 
-  it('provides delete from the entry menu and keeps the existing confirmation', () => {
+  it('confirms deletion from the entry menu in a popup', () => {
     const startTime = new Date(component.weekStart());
     startTime.setHours(9, 0, 0, 0);
     const entry = {
@@ -488,15 +494,13 @@ describe('Dashboard', () => {
     const menuButtons = fixture.nativeElement.querySelectorAll('.entry-actions-menu button');
     expect(menuButtons[1].textContent).toContain('Delete entry');
     (menuButtons[1] as HTMLButtonElement).click();
-    httpMock
-      .expectOne((request) => request.url.endsWith('/projects/p1/tasks'))
-      .flush({ tasks: [] });
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.entry-removal-confirmation')).not.toBeNull();
-    (fixture.nativeElement.querySelector(
-      '.entry-removal-confirmation .btn-danger',
-    ) as HTMLButtonElement).click();
+    expect(fixture.nativeElement.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(component.editingEntry()).toBeNull();
+    (
+      fixture.nativeElement.querySelector('.entry-delete-dialog .btn-danger') as HTMLButtonElement
+    ).click();
     httpMock
       .expectOne(
         (request) => request.method === 'DELETE' && request.url.endsWith('/time-entries/e1'),
@@ -515,6 +519,7 @@ describe('Dashboard', () => {
       projectId: 'p1',
       taskId: 't1',
       date: '2026-10-19',
+      endDate: '2026-10-19',
       startTime: '10:00',
       endTime: '09:00',
     });
@@ -522,11 +527,38 @@ describe('Dashboard', () => {
     component.saveManualEntry();
 
     expect(component.manualEntryError()).toContain(
-      'End time must be after start time on the same date',
+      'End date and time must be after the start date and time.',
     );
     httpMock.expectNone(
       (request) => request.method === 'POST' && request.url.endsWith('/time-entries'),
     );
+  });
+
+  it('creates a manual entry that ends the next day', () => {
+    component.openManualEntry();
+    component.updateManualEntry({
+      projectId: 'p1',
+      taskId: 't1',
+      date: '2026-10-19',
+      endDate: '2026-10-20',
+      startTime: '22:00',
+      endTime: '01:00',
+    });
+
+    expect(component.manualEntryDuration()).toBe('3h 0m');
+    component.saveManualEntry();
+
+    const request = httpMock.expectOne(
+      (req) => req.method === 'POST' && req.url.endsWith('/time-entries'),
+    );
+    expect(request.request.body.startTime).toBe(
+      new Date('2026-10-19T22:00').toISOString(),
+    );
+    expect(request.request.body.endTime).toBe(
+      new Date('2026-10-20T01:00').toISOString(),
+    );
+    request.flush({ timeEntry: { id: 'e2' } });
+    httpMock.expectOne((req) => req.url.endsWith('/time-entries')).flush({ timeEntries: [] });
   });
 
   it('saves running timer project, task, and start time when ending it', () => {
@@ -818,9 +850,7 @@ describe('Dashboard', () => {
       .format(changedStart)
       .replace(/\u202f/g, ' ');
     expect(
-      fixture.nativeElement
-        .querySelector('.entry-time-range')
-        .textContent.replace(/\u202f/g, ' '),
+      fixture.nativeElement.querySelector('.entry-time-range').textContent.replace(/\u202f/g, ' '),
     ).toContain(displayedStart);
   });
 
@@ -953,10 +983,10 @@ describe('Dashboard', () => {
 
     expect(fixture.nativeElement.querySelector('.entry-description')).toBeNull();
     const dateTimeFields = fixture.nativeElement.querySelector('.entry-date-time-fields');
-    expect(dateTimeFields.querySelectorAll('app-date-time-picker')).toHaveLength(3);
-    expect(dateTimeFields.querySelectorAll('.date-only-picker')).toHaveLength(1);
+    expect(dateTimeFields.querySelectorAll('app-date-time-picker')).toHaveLength(4);
+    expect(dateTimeFields.querySelectorAll('.date-only-picker')).toHaveLength(2);
     expect(dateTimeFields.querySelectorAll('.time-only-picker')).toHaveLength(2);
-    expect(dateTimeFields.querySelectorAll('.stacked-label-picker')).toHaveLength(3);
+    expect(dateTimeFields.querySelectorAll('.stacked-label-picker')).toHaveLength(4);
     expect(dateTimeFields.querySelectorAll('input[type="date"], input[type="time"]')).toHaveLength(
       0,
     );
@@ -967,7 +997,7 @@ describe('Dashboard', () => {
     );
 
     const endTimeInput = dateTimeFields
-      .querySelectorAll('app-date-time-picker')[2]
+      .querySelectorAll('app-date-time-picker')[3]
       .querySelector('.manual-time-input') as HTMLInputElement;
     endTimeInput.value = '10:30';
     endTimeInput.dispatchEvent(new Event('input'));
@@ -1033,6 +1063,7 @@ describe('Dashboard', () => {
       taskId: 't1',
       description: '',
       date: '2026-10-18',
+      endDate: '2026-10-18',
       startTime: '10:00',
       endTime: '09:00',
       isBillable: true,
@@ -1040,8 +1071,37 @@ describe('Dashboard', () => {
 
     component.saveEntryEdit();
 
-    expect(component.editingError()).toBe('End time must be after start time on the same date.');
+    expect(component.editingError()).toBe(
+      'End date and time must be after the start date and time.',
+    );
     httpMock.expectNone((request) => request.method === 'PATCH');
+  });
+
+  it('saves an edited entry that ends the next day', () => {
+    component.editingEntry.set({
+      id: 'e1',
+      projectId: 'p1',
+      taskId: 't1',
+      description: 'Overnight work',
+      date: '2026-10-19',
+      endDate: '2026-10-20',
+      startTime: '22:00',
+      endTime: '01:00',
+      isBillable: true,
+    });
+
+    component.saveEntryEdit();
+
+    const request = httpMock.expectOne(
+      (req) => req.method === 'PATCH' && req.url.endsWith('/time-entries/e1'),
+    );
+    expect(request.request.body.startTime).toBe(
+      new Date('2026-10-19T22:00').toISOString(),
+    );
+    expect(request.request.body.endTime).toBe(
+      new Date('2026-10-20T01:00').toISOString(),
+    );
+    request.flush({ timeEntry: { id: 'e1' } });
   });
 
   it('automatically saves edited fields and keeps the editor open', async () => {
@@ -1099,7 +1159,7 @@ describe('Dashboard', () => {
     expect(form.textContent).not.toContain('Cancel');
     expect(form.querySelector('.entry-save-status')?.textContent).toContain('Changes saved');
     const removeButton = form.querySelector('.entry-edit-actions button') as HTMLButtonElement;
-    expect(removeButton.textContent).toContain('Remove entry');
+    expect(removeButton.textContent).toContain('Delete entry');
     expect(removeButton.classList.contains('btn-danger')).toBe(true);
   });
 
@@ -1173,6 +1233,7 @@ describe('Dashboard', () => {
     component.updateEntryDraft({
       taskId: 't2',
       date: '2026-10-16',
+      endDate: '2026-10-16',
       startTime: '09:00',
       endTime: '11:00',
       description: 'Updated drafting',

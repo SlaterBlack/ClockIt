@@ -3,3 +3,152 @@
 @use 'styles/base';
 @use 'styles/components';
 
+app-reports {
+  .report-entry-actions {
+    position: relative;
+  }
+
+  .report-entry-actions-trigger,
+  .report-entry-editor-close {
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+    cursor: pointer;
+  }
+
+  .report-entry-actions-menu {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + var(--space-xs));
+    right: 0;
+    min-width: 9rem;
+    padding: var(--space-xs);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-md);
+
+    button {
+      width: 100%;
+      padding: 0.5rem;
+      border: 0;
+      background: transparent;
+      color: var(--color-text);
+      text-align: left;
+      cursor: pointer;
+    }
+  }
+
+  .entry-edit-form {
+    display: grid;
+    gap: var(--space-sm);
+    padding: var(--space-md) 0;
+  }
+
+  .entry-edit-owner {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+  }
+
+  .entry-edit-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-sm);
+
+    input:not([type='checkbox']),
+    select {
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
+      min-height: 40px;
+      padding: 0.5rem 0.625rem;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-surface);
+      color: var(--color-text);
+    }
+
+    .entry-description-input {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .entry-delete-dialog-backdrop {
+    position: fixed;
+    z-index: 100;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: var(--space-md);
+    background: rgb(15 30 23 / 48%);
+  }
+
+  .entry-delete-dialog {
+    width: min(100%, 28rem);
+    padding: var(--space-lg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-md);
+
+    h2 {
+      margin: 0 0 var(--space-sm);
+    }
+
+    p {
+      margin: 0;
+    }
+  }
+
+  .entry-delete-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+    margin-top: var(--space-lg);
+  }
+
+  .entry-date-time-fields {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-sm);
+
+    label {
+      display: grid;
+      gap: var(--space-xs);
+      color: var(--color-text-muted);
+      font-size: 0.8rem;
+    }
+  }
+
+  .entry-billable {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: 0.9rem;
+
+    input {
+      width: 1rem;
+      height: 1rem;
+      margin: 0;
+    }
+  }
+
+  .entry-edit-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+  }
+
+  @media (max-width: 760px) {
+    .entry-edit-fields,
+    .entry-date-time-fields {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}

@@ -49,7 +49,20 @@ export class TimeEntry {
     return this.http.patch<{ timeEntry: TimeEntryDto }>(`${this.apiUrl}/${id}`, payload);
   }
 
+  updateAsAdmin(
+    id: string,
+    payload: Partial<
+      Pick<TimeEntryDto, 'description' | 'taskId' | 'isBillable' | 'startTime' | 'endTime'>
+    >,
+  ): Observable<{ timeEntry: TimeEntryDto }> {
+    return this.http.patch<{ timeEntry: TimeEntryDto }>(`${this.apiUrl}/admin/${id}`, payload);
+  }
+
   remove(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
+  removeAsAdmin(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/admin/${id}`);
   }
 }

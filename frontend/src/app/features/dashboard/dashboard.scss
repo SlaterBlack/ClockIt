@@ -314,21 +314,6 @@
   text-align: right;
 }
 
-.entry-removal-confirmation {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-sm);
-  padding-top: var(--space-sm);
-  border-top: 1px solid var(--color-border);
-
-  p {
-    flex: 1 1 100%;
-    margin: 0;
-  }
-}
-
 @media (max-width: 760px) {
   .entry-history-header {
     display: grid;
@@ -399,7 +384,9 @@
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-sm);
 
-    select { min-width: 0; }
+    select {
+      min-width: 0;
+    }
   }
 
   .running-timer-right {

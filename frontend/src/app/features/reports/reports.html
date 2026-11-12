@@ -274,6 +274,9 @@
               <th scope="col">Time</th>
               <th scope="col">Duration</th>
               <th scope="col">Billable</th>
+              @if (isAdmin()) {
+                <th scope="col"><span class="visually-hidden">Actions</span></th>
+              }
             </tr>
           </thead>
           <tbody>
@@ -300,7 +303,146 @@
                     {{ entry.isBillable ? 'Billable' : 'Non-billable' }}
                   </span>
                 </td>
+                @if (isAdmin()) {
+                  <td>
+                    <div class="report-entry-actions">
+                      <button
+                        class="report-entry-actions-trigger"
+                        type="button"
+                        [attr.aria-label]="'Actions for entry ' + entry.id"
+                        aria-haspopup="true"
+                        [attr.aria-expanded]="activeEntryMenuId() === entry.id"
+                        (click)="toggleEntryMenu(entry.id)"
+                      >
+                        <span aria-hidden="true">⋯</span>
+                      </button>
+                      @if (activeEntryMenuId() === entry.id) {
+                        <div class="report-entry-actions-menu">
+                          <button
+                            type="button"
+                            (click)="openEntryEdit(entry)"
+                            [attr.aria-label]="
+                              'Edit entry for ' + (entry.user?.name || 'unknown user')
+                            "
+                          >
+                            Edit entry
+                          </button>
+                          <button
+                            type="button"
+                            (click)="requestEntryRemoval(entry)"
+                            [attr.aria-label]="
+                              'Delete entry for ' + (entry.user?.name || 'unknown user')
+                            "
+                          >
+                            Delete entry
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  </td>
+                }
               </tr>
+              @if (editingEntry()?.entryId === entry.id) {
+                <tr>
+                  <td [attr.colspan]="isAdmin() ? 8 : 7">
+                    <div class="entry-edit-form">
+                      <p class="entry-edit-owner">
+                        Editing entry for {{ editingEntry()!.userName }}
+                      </p>
+                      @if (isLoadingEditableProjects()) {
+                        <p role="status">Loading projects…</p>
+                      } @else if (editableProjectsError(); as error) {
+                        <p class="error-text" role="alert">{{ error }}</p>
+                      } @else {
+                        <div class="entry-edit-fields">
+                          <select
+                            aria-label="Entry project"
+                            title="Select project"
+                            [ngModel]="editingEntry()?.projectId"
+                            (ngModelChange)="setEntryEditProject($event)"
+                          >
+                            <option value="">Select project</option>
+                            @for (project of editableProjects(); track project.id) {
+                              <option [value]="project.id">{{ project.name }}</option>
+                            }
+                          </select>
+                          <select
+                            aria-label="Entry task"
+                            title="Select task"
+                            [ngModel]="editingEntry()?.taskId"
+                            (ngModelChange)="updateEntryEditDraft({ taskId: $event })"
+                            [disabled]="!editingEntry()?.projectId"
+                          >
+                            <option value="">Select task</option>
+                            @for (task of editableTasks(); track task.id) {
+                              <option [value]="task.id">{{ task.name }}</option>
+                            }
+                          </select>
+                          <input
+                            class="entry-description-input"
+                            type="text"
+                            maxlength="500"
+                            placeholder="Description"
+                            aria-label="Entry description"
+                            [ngModel]="editingEntry()?.description"
+                            (ngModelChange)="updateEntryEditDraft({ description: $event })"
+                          />
+                          <label class="entry-billable">
+                            <input
+                              type="checkbox"
+                              aria-label="Entry is billable"
+                              [ngModel]="editingEntry()?.isBillable"
+                              (ngModelChange)="updateEntryEditDraft({ isBillable: $event })"
+                            />
+                            Billable
+                          </label>
+                          <div class="entry-date-time-fields">
+                            <label>
+                              Start time
+                              <input
+                                type="datetime-local"
+                                aria-label="Entry start time"
+                                [ngModel]="editingEntry()?.startDateTime"
+                                (ngModelChange)="updateEntryEditDraft({ startDateTime: $event })"
+                              />
+                            </label>
+                            <label>
+                              End time
+                              <input
+                                type="datetime-local"
+                                aria-label="Entry end time"
+                                [ngModel]="editingEntry()?.endDateTime"
+                                (ngModelChange)="updateEntryEditDraft({ endDateTime: $event })"
+                              />
+                            </label>
+                          </div>
+                        </div>
+                        @if (entryEditError(); as error) {
+                          <p class="error-text" role="alert">{{ error }}</p>
+                        }
+                        <div class="entry-edit-actions">
+                          <button
+                            class="btn btn-secondary"
+                            type="button"
+                            [disabled]="isSavingEntryEdit()"
+                            (click)="closeEntryEdit()"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            class="btn btn-primary"
+                            type="button"
+                            [disabled]="isSavingEntryEdit()"
+                            (click)="saveEntryEdit()"
+                          >
+                            {{ isSavingEntryEdit() ? 'Saving…' : 'Save changes' }}
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
             }
           </tbody>
         </table>
@@ -334,4 +476,44 @@
       }
     }
   </section>
+}
+
+@if (pendingRemovalEntry(); as entry) {
+  <div class="entry-delete-dialog-backdrop" (click)="cancelEntryRemoval()">
+    <section
+      class="entry-delete-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="report-delete-dialog-title"
+      aria-describedby="report-delete-dialog-description"
+      (click)="$event.stopPropagation()"
+    >
+      <h2 id="report-delete-dialog-title">Delete time entry?</h2>
+      <p id="report-delete-dialog-description">
+        Delete the entry for {{ entry.user?.name || 'unknown user' }}? This action cannot be undone.
+      </p>
+      @if (entryRemovalError(); as error) {
+        <p class="error-text" role="alert">{{ error }}</p>
+      }
+      <div class="entry-delete-dialog-actions">
+        <button
+          class="btn btn-secondary"
+          type="button"
+          autofocus
+          [disabled]="isRemovingEntry()"
+          (click)="cancelEntryRemoval()"
+        >
+          Cancel
+        </button>
+        <button
+          class="btn btn-danger"
+          type="button"
+          [disabled]="isRemovingEntry()"
+          (click)="confirmEntryRemoval()"
+        >
+          {{ isRemovingEntry() ? 'Deleting…' : 'Yes, delete entry' }}
+        </button>
+      </div>
+    </section>
+  </div>
 }

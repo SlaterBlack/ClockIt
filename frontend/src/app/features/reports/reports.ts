@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
@@ -10,9 +11,14 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { interval } from 'rxjs';
+import { forkJoin, interval } from 'rxjs';
+import type { Project as ProjectDto } from '../../core/models/project.model';
 import type { ReportUser } from '../../core/models/report.model';
+import { Auth } from '../../core/services/auth';
+import { Project as ProjectService } from '../../core/services/project';
 import { Report as ReportService } from '../../core/services/report';
+import { TimeEntry as TimeEntryService } from '../../core/services/time-entry';
+import { Workspace as WorkspaceService } from '../../core/services/workspace';
 import type { TimeEntry as TimeEntryDto } from '../../core/models/time-entry.model';
 import { ReportExportPanel } from './report-export-panel';
 import { entryDurationSeconds, formatClockDuration, localDateKey } from './report-export';
@@ -26,6 +32,22 @@ interface ProjectSummary {
   durationSeconds: number;
 }
 
+interface EntryEditDraft {
+  entryId: string;
+  userName: string;
+  projectId: string;
+  taskId: string;
+  description: string;
+  startDateTime: string;
+  endDateTime: string;
+  isBillable: boolean;
+}
+
+type EntryEditFields = Pick<
+  EntryEditDraft,
+  'projectId' | 'taskId' | 'description' | 'startDateTime' | 'endDateTime' | 'isBillable'
+>;
+
 @Component({
   selector: 'app-reports',
   imports: [FormsModule, DatePipe, ReportExportPanel],
@@ -33,10 +55,16 @@ interface ProjectSummary {
   styleUrl: './reports.scss',
 })
 export class Reports implements OnInit {
+  private readonly auth = inject(Auth);
   private readonly reportService = inject(ReportService);
+  private readonly timeEntryService = inject(TimeEntryService);
+  private readonly workspaceService = inject(WorkspaceService);
+  private readonly projectService = inject(ProjectService);
   private readonly destroyRef = inject(DestroyRef);
   private reportRequestId = 0;
+  private editableProjectsLoaded = false;
 
+  readonly isAdmin = this.auth.isAdmin;
   readonly reportUsers = signal<ReportUser[]>([]);
   readonly currentUserId = signal('');
   readonly selectedUserIds = signal<string[]>([]);
@@ -54,6 +82,20 @@ export class Reports implements OnInit {
   readonly pageSize = signal<number>(25);
   readonly currentPage = signal(1);
   readonly isUserMenuOpen = signal(false);
+  readonly activeEntryMenuId = signal<string | null>(null);
+  readonly editingEntry = signal<EntryEditDraft | null>(null);
+  readonly pendingRemovalEntry = signal<TimeEntryDto | null>(null);
+  readonly isRemovingEntry = signal(false);
+  readonly entryRemovalError = signal<string | null>(null);
+  readonly editableProjects = signal<ProjectDto[]>([]);
+  readonly isLoadingEditableProjects = signal(false);
+  readonly editableProjectsError = signal<string | null>(null);
+  readonly isSavingEntryEdit = signal(false);
+  readonly entryEditError = signal<string | null>(null);
+  readonly editableTasks = computed(() => {
+    const projectId = this.editingEntry()?.projectId;
+    return this.editableProjects().find((project) => project.id === projectId)?.tasks ?? [];
+  });
   readonly allUsersSelected = computed(
     () =>
       this.reportUsers().length > 0 && this.selectedUserIds().length === this.reportUsers().length,
@@ -221,9 +263,155 @@ export class Reports implements OnInit {
     this.closeUserMenu();
   }
 
-  @HostListener('document:click')
-  onDocumentClick(): void {
-    this.closeUserMenu();
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target;
+    if (!(target instanceof Element) || !target.closest('.report-user-filter')) {
+      this.closeUserMenu();
+    }
+    if (!(target instanceof Element) || !target.closest('.report-entry-actions')) {
+      this.activeEntryMenuId.set(null);
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.cancelEntryRemoval();
+  }
+
+  toggleEntryMenu(entryId: string): void {
+    this.activeEntryMenuId.update((currentId) => (currentId === entryId ? null : entryId));
+  }
+
+  openEntryEdit(entry: TimeEntryDto): void {
+    if (!this.isAdmin()) {
+      return;
+    }
+
+    this.activeEntryMenuId.set(null);
+    this.entryEditError.set(null);
+    this.editingEntry.set({
+      entryId: entry.id,
+      userName: entry.user?.name ?? 'Unknown user',
+      projectId: entry.projectId ?? '',
+      taskId: entry.taskId ?? '',
+      description: entry.description ?? '',
+      startDateTime: this.toLocalDateTime(entry.startTime),
+      endDateTime: entry.endTime ? this.toLocalDateTime(entry.endTime) : '',
+      isBillable: entry.isBillable,
+    });
+    this.loadEditableProjects();
+  }
+
+  requestEntryRemoval(entry: TimeEntryDto): void {
+    if (!this.isAdmin() || this.isRemovingEntry()) {
+      return;
+    }
+
+    this.activeEntryMenuId.set(null);
+    this.entryRemovalError.set(null);
+    this.pendingRemovalEntry.set(entry);
+  }
+
+  cancelEntryRemoval(): void {
+    if (!this.isRemovingEntry()) {
+      this.pendingRemovalEntry.set(null);
+      this.entryRemovalError.set(null);
+    }
+  }
+
+  confirmEntryRemoval(): void {
+    const entry = this.pendingRemovalEntry();
+    if (!this.isAdmin() || !entry || this.isRemovingEntry()) {
+      return;
+    }
+
+    this.isRemovingEntry.set(true);
+    this.entryRemovalError.set(null);
+    this.timeEntryService.removeAsAdmin(entry.id).subscribe({
+      next: () => {
+        this.isRemovingEntry.set(false);
+        this.pendingRemovalEntry.set(null);
+        if (this.editingEntry()?.entryId === entry.id) {
+          this.editingEntry.set(null);
+          this.entryEditError.set(null);
+        }
+        this.loadTimeEntries(this.selectedUserIds());
+      },
+      error: (error: unknown) => {
+        this.isRemovingEntry.set(false);
+        this.entryRemovalError.set(
+          this.requestErrorMessage(error, 'Could not delete this time entry. Try again.'),
+        );
+      },
+    });
+  }
+
+  closeEntryEdit(): void {
+    if (!this.isSavingEntryEdit()) {
+      this.editingEntry.set(null);
+      this.entryEditError.set(null);
+    }
+  }
+
+  updateEntryEditDraft(changes: Partial<EntryEditFields>): void {
+    this.editingEntry.update((draft) => (draft ? { ...draft, ...changes } : draft));
+    this.entryEditError.set(null);
+  }
+
+  setEntryEditProject(projectId: string): void {
+    this.editingEntry.update((draft) => (draft ? { ...draft, projectId, taskId: '' } : draft));
+    this.entryEditError.set(null);
+  }
+
+  saveEntryEdit(): void {
+    const draft = this.editingEntry();
+    if (!this.isAdmin() || !draft || this.isSavingEntryEdit()) {
+      return;
+    }
+    if (!draft.projectId || !draft.taskId) {
+      this.entryEditError.set('Select a project and task for this entry.');
+      return;
+    }
+    if (draft.description.length > 500) {
+      this.entryEditError.set('Description must be 500 characters or fewer.');
+      return;
+    }
+
+    const startTime = new Date(draft.startDateTime);
+    const endTime = draft.endDateTime ? new Date(draft.endDateTime) : null;
+    if (Number.isNaN(startTime.getTime()) || (endTime && Number.isNaN(endTime.getTime()))) {
+      this.entryEditError.set('Enter valid start and end times.');
+      return;
+    }
+    if (endTime && endTime < startTime) {
+      this.entryEditError.set('The end time must be on or after the start time.');
+      return;
+    }
+
+    this.isSavingEntryEdit.set(true);
+    this.timeEntryService
+      .updateAsAdmin(draft.entryId, {
+        taskId: draft.taskId,
+        description: draft.description.trim(),
+        isBillable: draft.isBillable,
+        startTime: startTime.toISOString(),
+        endTime: endTime?.toISOString() ?? null,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.isSavingEntryEdit.set(false);
+          this.editingEntry.set(null);
+          this.loadTimeEntries(this.selectedUserIds());
+        },
+        error: (error: unknown) => {
+          this.isSavingEntryEdit.set(false);
+          this.entryEditError.set(
+            this.requestErrorMessage(error, 'Could not update this time entry. Try again.'),
+          );
+        },
+      });
   }
 
   private setSelectedUsers(userIds: string[]): void {
@@ -376,6 +564,66 @@ export class Reports implements OnInit {
 
   private durationSeconds(entry: TimeEntryDto): number {
     return entryDurationSeconds(entry, this.clockNow());
+  }
+
+  private loadEditableProjects(): void {
+    if (this.editableProjectsLoaded || this.isLoadingEditableProjects()) {
+      return;
+    }
+
+    this.isLoadingEditableProjects.set(true);
+    this.editableProjectsError.set(null);
+    this.workspaceService
+      .list()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ workspaces }) => {
+          if (workspaces.length === 0) {
+            this.editableProjects.set([]);
+            this.editableProjectsLoaded = true;
+            this.isLoadingEditableProjects.set(false);
+            return;
+          }
+
+          forkJoin(
+            workspaces.map((workspace) =>
+              this.projectService.listByWorkspace(workspace.id, true, true),
+            ),
+          )
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+              next: (results) => {
+                this.editableProjects.set(results.flatMap((result) => result.projects));
+                this.editableProjectsLoaded = true;
+                this.isLoadingEditableProjects.set(false);
+              },
+              error: () => {
+                this.editableProjectsError.set('Could not load projects for entry editing.');
+                this.isLoadingEditableProjects.set(false);
+              },
+            });
+        },
+        error: () => {
+          this.editableProjectsError.set('Could not load workspaces for entry editing.');
+          this.isLoadingEditableProjects.set(false);
+        },
+      });
+  }
+
+  private toLocalDateTime(value: string): string {
+    const date = new Date(value);
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  }
+
+  private requestErrorMessage(error: unknown, fallback: string): string {
+    if (
+      error instanceof HttpErrorResponse &&
+      typeof error.error?.message === 'string' &&
+      error.error.message.length > 0
+    ) {
+      return error.error.message;
+    }
+    return fallback;
   }
 
   private startOfDay(date: Date): Date {

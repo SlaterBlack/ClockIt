@@ -1,6 +1,14 @@
 import { DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Component, DestroyRef, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  HostListener,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { EMPTY, Observable, Subject, interval } from 'rxjs';
 import { catchError, concatMap, finalize, tap } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
@@ -21,6 +29,7 @@ interface TimeEntryEdit {
   taskId: string;
   description: string;
   date: string;
+  endDate: string;
   startTime: string;
   endTime: string;
   isBillable: boolean;
@@ -38,6 +47,7 @@ interface ManualEntryDraft {
   taskId: string;
   description: string;
   date: string;
+  endDate: string;
   startTime: string;
   endTime: string;
   isBillable: boolean;
@@ -143,7 +153,9 @@ export class Dashboard implements OnInit {
   });
   readonly editingDuration = computed(() => {
     const draft = this.editingEntry();
-    return draft ? this.durationPreview(draft.date, draft.startTime, draft.endTime, true) : '—';
+    return draft
+      ? this.durationPreview(draft.date, draft.startTime, draft.endDate, draft.endTime, true)
+      : '—';
   });
   readonly editingTasks = signal<TaskDto[]>([]);
   readonly editingError = signal<string | null>(null);
@@ -151,6 +163,7 @@ export class Dashboard implements OnInit {
   readonly savingEntryId = signal<string | null>(null);
   readonly entrySaveStatus = signal<'idle' | 'saving' | 'saved'>('idle');
   readonly entryPendingRemovalId = signal<string | null>(null);
+  readonly entryRemovalErrorMessage = signal<string | null>(null);
   readonly isRemovingEntry = signal(false);
   readonly openEntryActionsId = signal<string | null>(null);
   readonly duplicatingEntryId = signal<string | null>(null);
@@ -162,25 +175,28 @@ export class Dashboard implements OnInit {
   });
   readonly manualEntryDuration = computed(() => {
     const draft = this.manualEntry();
-    return draft ? this.durationPreview(draft.date, draft.startTime, draft.endTime, false) : '—';
+    return draft
+      ? this.durationPreview(draft.date, draft.startTime, draft.endDate, draft.endTime, false)
+      : '—';
   });
   readonly manualTasks = signal<TaskDto[]>([]);
   readonly manualEntryError = signal<string | null>(null);
   readonly isSavingManualEntry = signal(false);
 
   private durationPreview(
-    date: string,
+    startDate: string,
     startTime: string,
+    endDate: string,
     endTime: string,
     running: boolean,
   ): string {
-    if (!date || !startTime) {
+    if (!startDate || !startTime) {
       return '—';
     }
 
-    const start = new Date(`${date}T${startTime}`);
+    const start = new Date(`${startDate}T${startTime}`);
     const end = endTime
-      ? new Date(`${date}T${endTime}`)
+      ? new Date(`${endDate || startDate}T${endTime}`)
       : running
         ? new Date(this.clockNow())
         : null;
@@ -244,13 +260,19 @@ export class Dashboard implements OnInit {
                     : {}),
                 };
               });
-              if (revision === this.runningTimerSaveRevision && this.runningEntry()?.id === entryId) {
+              if (
+                revision === this.runningTimerSaveRevision &&
+                this.runningEntry()?.id === entryId
+              ) {
                 this.runningTimerSaveStatus.set('saved');
                 this.errorMessage.set(null);
               }
             }),
             catchError(() => {
-              if (revision === this.runningTimerSaveRevision && this.runningEntry()?.id === entryId) {
+              if (
+                revision === this.runningTimerSaveRevision &&
+                this.runningEntry()?.id === entryId
+              ) {
                 this.runningTimerSaveStatus.set('error');
                 this.errorMessage.set('Could not save changes to the running timer. Try again.');
               }
@@ -382,15 +404,16 @@ export class Dashboard implements OnInit {
     const end = new Date();
     end.setSeconds(0, 0);
     const start = new Date(end.getTime() - 60 * 60 * 1000);
-    const date = this.toLocalDateTime(end.toISOString()).slice(0, 10);
     const startDateTime = this.toLocalDateTime(start.toISOString());
+    const endDateTime = this.toLocalDateTime(end.toISOString());
     this.manualEntry.set({
       projectId: '',
       taskId: '',
       description: '',
-      date,
-      startTime: startDateTime.slice(0, 10) === date ? startDateTime.slice(11) : '00:00',
-      endTime: this.toLocalDateTime(end.toISOString()).slice(11),
+      date: startDateTime.slice(0, 10),
+      endDate: endDateTime.slice(0, 10),
+      startTime: startDateTime.slice(11),
+      endTime: endDateTime.slice(11),
       isBillable: true,
     });
     this.manualTasks.set([]);
@@ -414,8 +437,27 @@ export class Dashboard implements OnInit {
     return draft && time ? `${draft.date}T${time}` : '';
   }
 
+  manualEntryEndDateTimeValue(): string {
+    const draft = this.manualEntry();
+    return draft ? `${draft.endDate}T00:00` : '';
+  }
+
+  manualEntryEndTimePickerValue(time: string | undefined): string {
+    const draft = this.manualEntry();
+    return draft && time ? `${draft.endDate}T${time}` : '';
+  }
+
   updateManualEntryDate(value: string): void {
-    this.updateManualEntry({ date: value.slice(0, 10) });
+    const date = value.slice(0, 10);
+    const draft = this.manualEntry();
+    this.updateManualEntry({
+      date,
+      ...(draft && draft.endDate === draft.date ? { endDate: date } : {}),
+    });
+  }
+
+  updateManualEntryEndDate(value: string): void {
+    this.updateManualEntry({ endDate: value.slice(0, 10) });
   }
 
   updateManualEntryTimeDraft(field: 'startTime' | 'endTime', value: string): void {
@@ -453,18 +495,18 @@ export class Dashboard implements OnInit {
       this.manualEntryError.set('Select a project and task.');
       return;
     }
-    if (!draft.date || !draft.startTime || !draft.endTime) {
-      this.manualEntryError.set('Enter a date, start time, and end time.');
+    if (!draft.date || !draft.startTime || !draft.endDate || !draft.endTime) {
+      this.manualEntryError.set('Enter start and end dates and times.');
       return;
     }
     const start = new Date(`${draft.date}T${draft.startTime}`);
-    const end = new Date(`${draft.date}T${draft.endTime}`);
+    const end = new Date(`${draft.endDate}T${draft.endTime}`);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
       this.manualEntryError.set('Enter a valid date, start time, and end time.');
       return;
     }
     if (end <= start) {
-      this.manualEntryError.set('End time must be after start time on the same date.');
+      this.manualEntryError.set('End date and time must be after the start date and time.');
       return;
     }
     if (end > new Date()) {
@@ -639,6 +681,9 @@ export class Dashboard implements OnInit {
       taskId: entry.taskId ?? '',
       description: entry.description,
       date: this.toLocalDateTime(entry.startTime).slice(0, 10),
+      endDate: entry.endTime
+        ? this.toLocalDateTime(entry.endTime).slice(0, 10)
+        : this.toLocalDateTime(entry.startTime).slice(0, 10),
       startTime: this.toLocalDateTime(entry.startTime).slice(11),
       endTime: entry.endTime ? this.toLocalDateTime(entry.endTime).slice(11) : '',
       isBillable: entry.isBillable,
@@ -688,6 +733,7 @@ export class Dashboard implements OnInit {
     this.editingError.set(null);
     this.entrySaveStatus.set('idle');
     this.entryPendingRemovalId.set(null);
+    this.entryRemovalErrorMessage.set(null);
   }
 
   requestEntryRemoval(entry: TimeEntryDto): void {
@@ -698,39 +744,48 @@ export class Dashboard implements OnInit {
       this.flushScheduledEntryEditSave();
     }
     this.entryPendingRemovalId.set(entry.id);
-    this.editingError.set(null);
+    this.entryRemovalErrorMessage.set(null);
   }
 
   cancelEntryRemoval(): void {
     if (!this.isRemovingEntry()) {
       this.entryPendingRemovalId.set(null);
+      this.entryRemovalErrorMessage.set(null);
     }
   }
 
   removeEntry(entry: TimeEntryDto): void {
-    if (this.entryPendingRemovalId() !== entry.id || this.isRemovingEntry()) {
+    this.removeEntryById(entry.id);
+  }
+
+  confirmEntryRemoval(): void {
+    const entryId = this.entryPendingRemovalId();
+    if (entryId) {
+      this.removeEntryById(entryId);
+    }
+  }
+
+  private removeEntryById(entryId: string): void {
+    if (this.entryPendingRemovalId() !== entryId || this.isRemovingEntry()) {
       return;
     }
 
     this.isRemovingEntry.set(true);
-    this.editingError.set(null);
-    this.timeEntryService.remove(entry.id).subscribe({
+    this.entryRemovalErrorMessage.set(null);
+    this.timeEntryService.remove(entryId).subscribe({
       next: () => {
         this.isRemovingEntry.set(false);
-        if (this.editingEntry()?.id === entry.id) {
+        if (this.editingEntry()?.id === entryId) {
           this.clearEditingEntry();
         } else {
           this.entryPendingRemovalId.set(null);
         }
+        this.entryRemovalErrorMessage.set(null);
         this.refresh();
       },
       error: () => {
         this.isRemovingEntry.set(false);
-        if (this.editingEntry()?.id === entry.id) {
-          this.editingError.set('Could not remove the time entry. Try again.');
-        } else {
-          this.errorMessage.set('Could not remove the time entry. Try again.');
-        }
+        this.entryRemovalErrorMessage.set('Could not delete the time entry. Try again.');
       },
     });
   }
@@ -745,9 +800,6 @@ export class Dashboard implements OnInit {
 
   deleteEntryFromActions(entry: TimeEntryDto): void {
     this.closeEntryActions();
-    if (this.editingEntry()?.id !== entry.id) {
-      this.toggleEntryEdit(entry);
-    }
     this.requestEntryRemoval(entry);
   }
 
@@ -788,6 +840,7 @@ export class Dashboard implements OnInit {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    this.cancelEntryRemoval();
     this.closeEntryActions();
   }
 
@@ -807,8 +860,27 @@ export class Dashboard implements OnInit {
     return draft && time ? `${draft.date}T${time}` : '';
   }
 
+  entryEndTimePickerValue(time: string | undefined): string {
+    const draft = this.editingEntry();
+    return draft && time ? `${draft.endDate}T${time}` : '';
+  }
+
+  entryEndDateTimeValue(): string {
+    const draft = this.editingEntry();
+    return draft ? `${draft.endDate}T00:00` : '';
+  }
+
   updateEntryDate(value: string): void {
-    this.updateEntryDraft({ date: value.slice(0, 10) });
+    const date = value.slice(0, 10);
+    const draft = this.editingEntry();
+    this.updateEntryDraft({
+      date,
+      ...(draft && draft.endDate === draft.date ? { endDate: date } : {}),
+    });
+  }
+
+  updateEntryEndDate(value: string): void {
+    this.updateEntryDraft({ endDate: value.slice(0, 10) });
   }
 
   updateEntryTimeDraft(field: 'startTime' | 'endTime', value: string): void {
@@ -891,7 +963,9 @@ export class Dashboard implements OnInit {
     }
 
     const start = new Date(`${draft.date}T${draft.startTime}`);
-    const end = draft.endTime ? new Date(`${draft.date}T${draft.endTime}`) : null;
+    const end = draft.endTime
+      ? new Date(`${draft.endDate || draft.date}T${draft.endTime}`)
+      : null;
     const update = {
       taskId: draft.taskId,
       description: draft.description,
@@ -943,15 +1017,17 @@ export class Dashboard implements OnInit {
       return 'Select a project and task.';
     }
     if (!draft.date || !draft.startTime) {
-      return 'Enter a date and start time.';
+      return 'Enter a start date and time.';
     }
     const start = new Date(`${draft.date}T${draft.startTime}`);
-    const end = draft.endTime ? new Date(`${draft.date}T${draft.endTime}`) : null;
+    const end = draft.endTime
+      ? new Date(`${draft.endDate || draft.date}T${draft.endTime}`)
+      : null;
     if (Number.isNaN(start.getTime()) || (end && Number.isNaN(end.getTime()))) {
       return 'Enter a valid date and start and end times.';
     }
     if (end && end <= start) {
-      return 'End time must be after start time on the same date.';
+      return 'End date and time must be after the start date and time.';
     }
     return null;
   }
@@ -1031,6 +1107,7 @@ export class Dashboard implements OnInit {
       left.taskId === right.taskId &&
       left.description === right.description &&
       left.date === right.date &&
+      left.endDate === right.endDate &&
       left.startTime === right.startTime &&
       left.endTime === right.endTime &&
       left.isBillable === right.isBillable

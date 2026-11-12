@@ -143,12 +143,20 @@
       />
       <div class="entry-date-time-fields">
         <app-date-time-picker
-          label="Date"
-          ariaLabel="Manual time entry date"
+          label="Start date"
+          ariaLabel="Manual time entry start date"
           [dateOnly]="true"
           [stackedLabel]="true"
           [value]="manualEntryDateTimeValue()"
           (valueChange)="updateManualEntryDate($event)"
+        />
+        <app-date-time-picker
+          label="End date"
+          ariaLabel="Manual time entry end date"
+          [dateOnly]="true"
+          [stackedLabel]="true"
+          [value]="manualEntryEndDateTimeValue()"
+          (valueChange)="updateManualEntryEndDate($event)"
         />
         <app-date-time-picker
           label="Start time"
@@ -168,7 +176,7 @@
           [manualTime]="true"
           [clearable]="true"
           [emitManualTimeOnInput]="true"
-          [value]="manualEntryTimePickerValue(manualEntry()?.endTime)"
+          [value]="manualEntryEndTimePickerValue(manualEntry()?.endTime)"
           (valueChange)="updateManualEntryTimeDraft('endTime', $event)"
         />
         <div class="entry-duration-preview" role="status">
@@ -234,8 +242,8 @@
 @if (timeEntries().length > 0) {
   <p class="entry-actions-hint" role="note">
     <small>
-      The <strong>Resume</strong> button starts a timer from that entry. Arrows on Project and
-      Task selectors open their dropdown menus.
+      The <strong>Resume</strong> button starts a timer from that entry. Arrows on Project and Task
+      selectors open their dropdown menus.
     </small>
   </p>
 }
@@ -309,7 +317,9 @@
                 <button
                   class="entry-actions-trigger"
                   type="button"
-                  [attr.aria-label]="'Actions for ' + (entry.description || entry.task?.name || 'time entry')"
+                  [attr.aria-label]="
+                    'Actions for ' + (entry.description || entry.task?.name || 'time entry')
+                  "
                   [attr.aria-expanded]="openEntryActionsId() === entry.id"
                   [attr.aria-controls]="'entry-actions-' + entry.id"
                   (click)="toggleEntryActions(entry.id)"
@@ -339,10 +349,7 @@
                 }
               </div>
               @if (editingEntry()?.id === entry.id) {
-                <div
-                  class="entry-edit-form"
-                  (focusout)="onEntryEditFocusOut($event)"
-                >
+                <div class="entry-edit-form" (focusout)="onEntryEditFocusOut($event)">
                   <div class="entry-edit-fields">
                     <select
                       [ngModel]="editingEntry()?.projectId"
@@ -390,12 +397,20 @@
                     </label>
                     <div class="entry-date-time-fields">
                       <app-date-time-picker
-                        label="Date"
-                        ariaLabel="Time entry date"
+                        label="Start date"
+                        ariaLabel="Time entry start date"
                         [dateOnly]="true"
                         [stackedLabel]="true"
                         [value]="editingDateTimeValue()"
                         (valueChange)="updateEntryDate($event)"
+                      />
+                      <app-date-time-picker
+                        label="End date"
+                        ariaLabel="Time entry end date"
+                        [dateOnly]="true"
+                        [stackedLabel]="true"
+                        [value]="entryEndDateTimeValue()"
+                        (valueChange)="updateEntryEndDate($event)"
                       />
                       <app-date-time-picker
                         label="Start time"
@@ -415,7 +430,7 @@
                         [manualTime]="true"
                         [clearable]="true"
                         [emitManualTimeOnInput]="true"
-                        [value]="entryTimePickerValue(editingEntry()?.endTime)"
+                        [value]="entryEndTimePickerValue(editingEntry()?.endTime)"
                         (valueChange)="updateEntryTimeDraft('endTime', $event)"
                       />
                       <div class="entry-duration-preview" role="status">
@@ -443,34 +458,9 @@
                       [disabled]="isSavingEntry() || isRemovingEntry()"
                       (click)="requestEntryRemoval(entry)"
                     >
-                      Remove entry
+                      Delete entry
                     </button>
                   </div>
-                  @if (entryPendingRemovalId() === entry.id) {
-                    <div
-                      class="entry-removal-confirmation"
-                      role="group"
-                      aria-label="Confirm time entry removal"
-                    >
-                      <p>Remove this time entry? This cannot be undone.</p>
-                      <button
-                        class="btn btn-danger"
-                        type="button"
-                        [disabled]="isRemovingEntry() || isSavingEntry()"
-                        (click)="removeEntry(entry)"
-                      >
-                        {{ isRemovingEntry() ? 'Removing…' : 'Remove entry' }}
-                      </button>
-                      <button
-                        class="btn btn-secondary"
-                        type="button"
-                        [disabled]="isRemovingEntry() || isSavingEntry()"
-                        (click)="cancelEntryRemoval()"
-                      >
-                        Keep entry
-                      </button>
-                    </div>
-                  }
                 </div>
               }
             </div>
@@ -499,3 +489,41 @@
     Next week
   </button>
 </nav>
+
+@if (entryPendingRemovalId()) {
+  <div class="entry-delete-dialog-backdrop" (click)="cancelEntryRemoval()">
+    <section
+      class="entry-delete-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="entry-delete-dialog-title"
+      aria-describedby="entry-delete-dialog-description"
+      (click)="$event.stopPropagation()"
+    >
+      <h2 id="entry-delete-dialog-title">Delete time entry?</h2>
+      <p id="entry-delete-dialog-description">This action cannot be undone.</p>
+      @if (entryRemovalErrorMessage(); as error) {
+        <p class="error-text" role="alert">{{ error }}</p>
+      }
+      <div class="entry-delete-dialog-actions">
+        <button
+          class="btn btn-secondary"
+          type="button"
+          autofocus
+          [disabled]="isRemovingEntry() || isSavingEntry()"
+          (click)="cancelEntryRemoval()"
+        >
+          Cancel
+        </button>
+        <button
+          class="btn btn-danger"
+          type="button"
+          [disabled]="isRemovingEntry() || isSavingEntry()"
+          (click)="confirmEntryRemoval()"
+        >
+          {{ isRemovingEntry() ? 'Deleting…' : 'Yes, delete entry' }}
+        </button>
+      </div>
+    </section>
+  </div>
+}
