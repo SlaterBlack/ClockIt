@@ -111,6 +111,14 @@ Keep the shared visual foundation, but let the information architecture reflect 
 
 ## Components and patterns
 
+### Authentication screens
+
+- Center the sign-in card horizontally and vertically in the viewport, using a responsive outer gutter and a card no wider than about `430px`.
+- Use a warm cream background (`#F5EBD8`) with subtle lavender radial accents, and an ivory card surface (`#FFFCF5`) with a quiet border and shadow.
+- Display the product's own high-resolution logo at about `56 × 56px` beside a `1.45rem` wordmark; set the sign-in heading around `1.9rem`.
+- Keep persistent labels above inputs, use the product's own primary action colour, and retain the product's logo and name even when shared sign-in credentials are used.
+- Keep the composition focused and responsive: the entire card should remain visible on small screens without losing comfortable padding or usable controls.
+
 ### Navigation
 
 - Keep the product name and primary destinations easy to locate.
