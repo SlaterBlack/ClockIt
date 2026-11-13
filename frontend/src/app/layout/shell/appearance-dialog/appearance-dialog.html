@@ -7,7 +7,7 @@
     (click)="$event.stopPropagation()"
   >
     <h2 id="appearance-title">Appearance</h2>
-    <p>Choose the theme used across ClockIt.</p>
+    <p>Choose the theme used across all your services.</p>
     <div class="theme-field">
       <span id="theme-label">Theme</span>
       <div class="theme-select">
@@ -41,6 +41,11 @@
         }
       </div>
     </div>
+    @if (appearance.isSavingTheme()) {
+      <p class="theme-save-status" role="status">Saving this theme to your account…</p>
+    } @else if (appearance.themeSyncError()) {
+      <p class="theme-save-error" role="alert">{{ appearance.themeSyncError() }}</p>
+    }
     <div class="appearance-actions">
       <button class="btn btn-primary" type="button" (click)="close.emit()">Done</button>
     </div>

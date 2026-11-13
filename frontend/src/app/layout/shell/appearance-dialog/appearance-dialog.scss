@@ -107,3 +107,17 @@
   justify-content: flex-end;
   margin-top: var(--space-xl);
 }
+
+.theme-save-status,
+.theme-save-error {
+  margin: var(--space-sm) 0 0;
+  font-size: 0.82rem;
+}
+
+.theme-save-status {
+  color: var(--color-text-muted);
+}
+
+.theme-save-error {
+  color: var(--color-danger);
+}

@@ -15,6 +15,7 @@ describe('Shell', () => {
 
   beforeEach(async () => {
     localStorage.removeItem('clockit_theme');
+    localStorage.removeItem('clockify_dupe_token');
     await TestBed.configureTestingModule({
       imports: [Shell],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
@@ -79,6 +80,7 @@ describe('Shell', () => {
           name: 'User',
           email: 'user@example.com',
           role: 'user',
+          theme: 'default',
         },
       });
     fixture.detectChanges();
@@ -102,6 +104,7 @@ describe('Shell', () => {
           name: 'User',
           email: 'user@example.com',
           role: 'user',
+          theme: 'default',
         },
       });
     fixture.detectChanges();
@@ -127,6 +130,48 @@ describe('Shell', () => {
     expect(TestBed.inject(Appearance).theme()).toBe('retro');
     expect(localStorage.getItem('clockit_theme')).toBe('retro');
     expect(document.documentElement.dataset['theme']).toBe('retro');
+  });
+
+  it('loads the account theme and persists theme changes through StoreIt', () => {
+    const auth = TestBed.inject(Auth);
+    const http = TestBed.inject(HttpTestingController);
+    auth.fetchCurrentUser().subscribe();
+    http
+      .expectOne((request) => request.url.endsWith('/auth/me') && request.method === 'GET')
+      .flush({
+        user: {
+          id: 'user-1',
+          name: 'User',
+          email: 'user@example.com',
+          role: 'user',
+          theme: 'retro',
+        },
+      });
+    fixture.detectChanges();
+
+    const appearance = TestBed.inject(Appearance);
+    expect(appearance.theme()).toBe('retro');
+    expect(document.documentElement.dataset['theme']).toBe('retro');
+
+    localStorage.setItem('clockify_dupe_token', 'test-token');
+    appearance.setTheme('default');
+    const request = http.expectOne(
+      (candidate) => candidate.url.endsWith('/auth/me') && candidate.method === 'PATCH',
+    );
+    expect(request.request.body).toEqual({ theme: 'default' });
+    request.flush({
+      user: {
+        id: 'user-1',
+        name: 'User',
+        email: 'user@example.com',
+        role: 'user',
+        theme: 'default',
+      },
+    });
+
+    expect(localStorage.getItem('clockit_theme')).toBe('default');
+    expect(appearance.isSavingTheme()).toBe(false);
+    expect(appearance.themeSyncError()).toBeNull();
   });
 
   it('uses the browser install prompt when available', async () => {
@@ -177,6 +222,7 @@ describe('Shell', () => {
           name: 'Admin',
           email: 'admin@example.com',
           role: 'admin',
+          theme: 'default',
         },
       });
     fixture.detectChanges();
