@@ -120,7 +120,7 @@
 .entry-date-time-fields {
   display: grid;
   grid-column: 1 / -1;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-sm);
   min-width: 0;
 }
@@ -132,7 +132,8 @@
   color: var(--color-text-muted);
   font-size: 0.8rem;
 
-  strong {
+  strong,
+  input {
     display: flex;
     align-items: center;
     box-sizing: border-box;
@@ -144,6 +145,12 @@
     color: var(--color-primary);
     font-size: 0.88rem;
     font-variant-numeric: tabular-nums;
+  }
+
+  input {
+    width: 100%;
+    background: var(--color-surface);
+    font: inherit;
   }
 }
 

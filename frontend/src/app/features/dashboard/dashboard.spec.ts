@@ -212,11 +212,45 @@ describe('Dashboard', () => {
     ).toBe('Open the project dropdown');
   });
 
-  it('does not start a timer without a task', () => {
+  it('starts a timer without a selected task', () => {
     component.startTimer();
 
+    const request = httpMock.expectOne(
+      (item) => item.url.endsWith('/time-entries/start') && item.method === 'POST',
+    );
+    expect(request.request.body).toEqual({ description: '' });
+    request.flush({ timeEntry: {} });
+
+    httpMock
+      .expectOne((item) => item.url.endsWith('/time-entries') && item.method === 'GET')
+      .flush({ timeEntries: [] });
+    expect(component.errorMessage()).toBeNull();
+  });
+
+  it('requires a project and task before ending an unassigned timer', () => {
+    component.runningEntry.set({
+      id: 'running',
+      description: '',
+      startTime: new Date(Date.now() - 60_000).toISOString(),
+      endTime: null,
+      durationSeconds: null,
+      isBillable: false,
+      userId: 'u1',
+      projectId: null,
+      taskId: null,
+      createdAt: '',
+      updatedAt: '',
+    });
+    component.runningTimerEdit.set({
+      projectId: '',
+      taskId: '',
+      startTime: new Date(Date.now() - 60_000).toISOString(),
+    });
+
+    component.endAndSaveRunningTimer();
+
     expect(component.errorMessage()).toContain('Select a project and task');
-    httpMock.expectNone((request) => request.url.endsWith('/time-entries/start'));
+    httpMock.expectNone((request) => request.url.endsWith('/running/stop'));
   });
 
   it('saves the running timer before starting a timer from a prior entry', () => {
@@ -350,7 +384,7 @@ describe('Dashboard', () => {
     expect(dateTimeFields.querySelectorAll('.time-only-picker')).toHaveLength(2);
     expect(dateTimeFields.querySelectorAll('.stacked-label-picker')).toHaveLength(4);
     expect(dateTimeFields.querySelectorAll('.manual-time-input[type="text"]')).toHaveLength(2);
-    expect(dateTimeFields.querySelector('.clear-manual-time')).not.toBeNull();
+    expect(dateTimeFields.querySelector('.clear-manual-time')).toBeNull();
     expect(dateTimeFields.querySelector('.entry-duration-preview strong').textContent).toBe(
       '1h 0m',
     );
@@ -551,12 +585,8 @@ describe('Dashboard', () => {
     const request = httpMock.expectOne(
       (req) => req.method === 'POST' && req.url.endsWith('/time-entries'),
     );
-    expect(request.request.body.startTime).toBe(
-      new Date('2026-10-19T22:00').toISOString(),
-    );
-    expect(request.request.body.endTime).toBe(
-      new Date('2026-10-20T01:00').toISOString(),
-    );
+    expect(request.request.body.startTime).toBe(new Date('2026-10-19T22:00').toISOString());
+    expect(request.request.body.endTime).toBe(new Date('2026-10-20T01:00').toISOString());
     request.flush({ timeEntry: { id: 'e2' } });
     httpMock.expectOne((req) => req.url.endsWith('/time-entries')).flush({ timeEntries: [] });
   });
@@ -943,7 +973,7 @@ describe('Dashboard', () => {
       });
   });
 
-  it('omits empty descriptions and keeps the custom date and typed-time controls', () => {
+  it('saves the end date and time derived from an edited duration', () => {
     const project = {
       id: 'p1',
       name: 'Sydney Opera House',
@@ -991,10 +1021,11 @@ describe('Dashboard', () => {
       0,
     );
     expect(dateTimeFields.querySelectorAll('.manual-time-input[type="text"]')).toHaveLength(2);
-    expect(dateTimeFields.querySelector('.clear-manual-time')).not.toBeNull();
-    expect(dateTimeFields.querySelector('.entry-duration-preview strong').textContent).toBe(
-      '1h 0m',
-    );
+    expect(dateTimeFields.querySelector('.clear-manual-time')).toBeNull();
+    expect(
+      (dateTimeFields.querySelector('input[aria-label="Time entry duration"]') as HTMLInputElement)
+        .value,
+    ).toBe('1h 0m');
 
     const endTimeInput = dateTimeFields
       .querySelectorAll('app-date-time-picker')[3]
@@ -1004,7 +1035,90 @@ describe('Dashboard', () => {
     fixture.detectChanges();
 
     expect(component.editingDuration()).toBe('1h 30m');
-    httpMock.expectNone((request) => request.method === 'PATCH');
+
+    const durationInput = dateTimeFields.querySelector(
+      'input[aria-label="Time entry duration"]',
+    ) as HTMLInputElement;
+    durationInput.value = '26:15';
+    durationInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(component.editingDuration()).toBe('26:15');
+    const draft = component.editingEntry()!;
+    const expectedEnd = new Date(`${draft.date}T${draft.startTime}`);
+    expectedEnd.setMinutes(expectedEnd.getMinutes() + 26 * 60 + 15);
+    expect(draft.endDate).toBe(
+      `${expectedEnd.getFullYear()}-${String(expectedEnd.getMonth() + 1).padStart(2, '0')}-${String(
+        expectedEnd.getDate(),
+      ).padStart(2, '0')}`,
+    );
+    expect(draft.endTime).toBe(
+      `${String(expectedEnd.getHours()).padStart(2, '0')}:${String(expectedEnd.getMinutes()).padStart(2, '0')}`,
+    );
+
+    durationInput.value = '26:15:30';
+    durationInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expectedEnd.setSeconds(expectedEnd.getSeconds() + 30);
+    expect(component.editingDuration()).toBe('26:15:30');
+    const updatedDraft = component.editingEntry()!;
+    expect(updatedDraft.endDate).toBe(
+      `${expectedEnd.getFullYear()}-${String(expectedEnd.getMonth() + 1).padStart(2, '0')}-${String(
+        expectedEnd.getDate(),
+      ).padStart(2, '0')}`,
+    );
+    expect(updatedDraft.endTime).toBe(
+      `${String(expectedEnd.getHours()).padStart(2, '0')}:${String(expectedEnd.getMinutes()).padStart(2, '0')}`,
+    );
+
+    component.saveEntryEdit();
+    const update = httpMock.expectOne(
+      (request) => request.method === 'PATCH' && request.url.endsWith('/time-entries/e1'),
+    );
+    expect(update.request.body.endTime).toBe(expectedEnd.toISOString());
+    update.flush({ timeEntry: { id: 'e1', endTime: expectedEnd.toISOString() } });
+  });
+
+  it('keeps multi-day entries grouped under their start date', () => {
+    component.weekStart.set(new Date(2026, 10, 9));
+    component.timeEntries.set([
+      {
+        id: 'same-day',
+        description: 'Same-day entry',
+        startTime: new Date(2026, 10, 10, 9, 10).toISOString(),
+        endTime: new Date(2026, 10, 10, 16, 52).toISOString(),
+        durationSeconds: 7 * 3600 + 42 * 60,
+        isBillable: true,
+        userId: 'u1',
+        projectId: 'p1',
+        taskId: 't1',
+        createdAt: '',
+        updatedAt: '',
+      },
+      {
+        id: 'multi-day',
+        description: 'Multi-day entry',
+        startTime: new Date(2026, 10, 10, 9, 1).toISOString(),
+        endTime: new Date(2026, 10, 12, 17, 1).toISOString(),
+        durationSeconds: 56 * 3600,
+        isBillable: true,
+        userId: 'u1',
+        projectId: 'p1',
+        taskId: 't1',
+        createdAt: '',
+        updatedAt: '',
+      },
+    ]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.entry-day')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('.entry-day-date').textContent.trim()).toBe(
+      'Tuesday, November 10, 2026',
+    );
+    expect(fixture.nativeElement.querySelectorAll('.time-entry-item')).toHaveLength(2);
+    expect(fixture.nativeElement.querySelector('.entry-day-total').textContent.trim()).toBe(
+      '63h 42m',
+    );
   });
 
   it('opens only the time entry the user clicks', () => {
@@ -1095,12 +1209,8 @@ describe('Dashboard', () => {
     const request = httpMock.expectOne(
       (req) => req.method === 'PATCH' && req.url.endsWith('/time-entries/e1'),
     );
-    expect(request.request.body.startTime).toBe(
-      new Date('2026-10-19T22:00').toISOString(),
-    );
-    expect(request.request.body.endTime).toBe(
-      new Date('2026-10-20T01:00').toISOString(),
-    );
+    expect(request.request.body.startTime).toBe(new Date('2026-10-19T22:00').toISOString());
+    expect(request.request.body.endTime).toBe(new Date('2026-10-20T01:00').toISOString());
     request.flush({ timeEntry: { id: 'e1' } });
   });
 

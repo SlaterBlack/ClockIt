@@ -17,7 +17,7 @@ export class TimeEntry {
 
   start(payload: {
     description?: string;
-    taskId: string;
+    taskId?: string;
     isBillable?: boolean;
   }): Observable<{ timeEntry: TimeEntryDto }> {
     return this.http.post<{ timeEntry: TimeEntryDto }>(`${this.apiUrl}/start`, payload);

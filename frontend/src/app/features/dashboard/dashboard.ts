@@ -32,6 +32,7 @@ interface TimeEntryEdit {
   endDate: string;
   startTime: string;
   endTime: string;
+  duration?: string;
   isBillable: boolean;
 }
 
@@ -58,6 +59,33 @@ interface TimeEntryDay {
   date: Date;
   entries: TimeEntryDto[];
   totalDurationSeconds: number;
+}
+
+function parseDurationSeconds(value: string): number | null {
+  const normalized = value.trim();
+  const clockMatch = /^(\d+):([0-5]\d)(?::([0-5]\d))?$/.exec(normalized);
+  if (clockMatch) {
+    const totalSeconds =
+      Number(clockMatch[1]) * 3600 + Number(clockMatch[2]) * 60 + Number(clockMatch[3] ?? 0);
+    return Number.isSafeInteger(totalSeconds) && totalSeconds > 0 ? totalSeconds : null;
+  }
+
+  const displayMatch = /^(?:(\d+)h )?(\d+)m$/.exec(normalized);
+  if (!displayMatch) {
+    return null;
+  }
+
+  const hours = Number(displayMatch[1] ?? 0);
+  const minutes = Number(displayMatch[2]);
+  if (
+    (displayMatch[1] !== undefined && minutes > 59) ||
+    !Number.isSafeInteger(hours * 3600 + minutes * 60)
+  ) {
+    return null;
+  }
+
+  const totalSeconds = hours * 3600 + minutes * 60;
+  return totalSeconds > 0 ? totalSeconds : null;
 }
 
 @Component({
@@ -154,7 +182,8 @@ export class Dashboard implements OnInit {
   readonly editingDuration = computed(() => {
     const draft = this.editingEntry();
     return draft
-      ? this.durationPreview(draft.date, draft.startTime, draft.endDate, draft.endTime, true)
+      ? (draft.duration ??
+          this.durationPreview(draft.date, draft.startTime, draft.endDate, draft.endTime, true))
       : '—';
   });
   readonly editingTasks = signal<TaskDto[]>([]);
@@ -307,27 +336,24 @@ export class Dashboard implements OnInit {
 
   startTimer(): void {
     const taskId = this.selectedTaskId();
-    if (!taskId) {
-      this.errorMessage.set('Select a project and task before starting the timer.');
-      return;
-    }
-
     this.isSubmitting.set(true);
     this.errorMessage.set(null);
-    this.timeEntryService.start({ description: this.description(), taskId }).subscribe({
-      next: () => {
-        this.description.set('');
-        this.selectedTaskId.set('');
-        this.selectedProjectId.set('');
-        this.tasks.set([]);
-        this.isSubmitting.set(false);
-        this.refresh();
-      },
-      error: () => {
-        this.isSubmitting.set(false);
-        this.errorMessage.set('Could not start the timer. Check the selected task and try again.');
-      },
-    });
+    this.timeEntryService
+      .start({ description: this.description(), ...(taskId ? { taskId } : {}) })
+      .subscribe({
+        next: () => {
+          this.description.set('');
+          this.selectedTaskId.set('');
+          this.selectedProjectId.set('');
+          this.tasks.set([]);
+          this.isSubmitting.set(false);
+          this.refresh();
+        },
+        error: () => {
+          this.isSubmitting.set(false);
+          this.errorMessage.set('Could not start the timer. Try again.');
+        },
+      });
   }
 
   startTimerFromEntry(entry: TimeEntryDto): void {
@@ -686,6 +712,15 @@ export class Dashboard implements OnInit {
         : this.toLocalDateTime(entry.startTime).slice(0, 10),
       startTime: this.toLocalDateTime(entry.startTime).slice(11),
       endTime: entry.endTime ? this.toLocalDateTime(entry.endTime).slice(11) : '',
+      duration: entry.endTime
+        ? this.durationPreview(
+            this.toLocalDateTime(entry.startTime).slice(0, 10),
+            this.toLocalDateTime(entry.startTime).slice(11),
+            this.toLocalDateTime(entry.endTime).slice(0, 10),
+            this.toLocalDateTime(entry.endTime).slice(11),
+            false,
+          )
+        : undefined,
       isBillable: entry.isBillable,
     };
     if (!this.pendingEntryEditSaveCounts.has(entry.id)) {
@@ -845,7 +880,41 @@ export class Dashboard implements OnInit {
   }
 
   updateEntryDraft(changes: Partial<TimeEntryEdit>, scheduleSave = true): void {
-    this.editingEntry.update((draft) => (draft ? { ...draft, ...changes } : null));
+    this.editingEntry.update((draft) => {
+      if (!draft) {
+        return null;
+      }
+
+      const updated = { ...draft, ...changes };
+      if (Object.prototype.hasOwnProperty.call(changes, 'duration')) {
+        const durationSeconds = updated.duration ? parseDurationSeconds(updated.duration) : null;
+        if (durationSeconds !== null && updated.date && updated.startTime) {
+          const end = new Date(`${updated.date}T${updated.startTime}`);
+          end.setTime(end.getTime() + durationSeconds * 1000);
+          if (!Number.isNaN(end.getTime())) {
+            const endDateTime = this.toLocalDateTime(end.toISOString());
+            updated.endDate = endDateTime.slice(0, 10);
+            updated.endTime = endDateTime.slice(11);
+          }
+        }
+      } else if (
+        ['date', 'endDate', 'startTime', 'endTime'].some((field) =>
+          Object.prototype.hasOwnProperty.call(changes, field),
+        )
+      ) {
+        updated.duration = updated.endTime
+          ? this.durationPreview(
+              updated.date,
+              updated.startTime,
+              updated.endDate,
+              updated.endTime,
+              false,
+            )
+          : undefined;
+      }
+
+      return updated;
+    });
     if (this.editingEntry()) {
       this.editingError.set(null);
       this.entrySaveStatus.set('idle');
@@ -889,6 +958,13 @@ export class Dashboard implements OnInit {
       this.updateEntryDraft({ startTime: time });
     } else {
       this.updateEntryDraft({ endTime: time });
+    }
+  }
+
+  updateEntryDuration(event: Event): void {
+    const input = event.currentTarget;
+    if (input instanceof HTMLInputElement) {
+      this.updateEntryDraft({ duration: input.value });
     }
   }
 
@@ -963,8 +1039,11 @@ export class Dashboard implements OnInit {
     }
 
     const start = new Date(`${draft.date}T${draft.startTime}`);
+    const durationSeconds = draft.duration ? parseDurationSeconds(draft.duration) : null;
     const end = draft.endTime
-      ? new Date(`${draft.endDate || draft.date}T${draft.endTime}`)
+      ? durationSeconds !== null
+        ? new Date(start.getTime() + durationSeconds * 1000)
+        : new Date(`${draft.endDate || draft.date}T${draft.endTime}`)
       : null;
     const update = {
       taskId: draft.taskId,
@@ -1020,14 +1099,19 @@ export class Dashboard implements OnInit {
       return 'Enter a start date and time.';
     }
     const start = new Date(`${draft.date}T${draft.startTime}`);
-    const end = draft.endTime
-      ? new Date(`${draft.endDate || draft.date}T${draft.endTime}`)
-      : null;
+    const end = draft.endTime ? new Date(`${draft.endDate || draft.date}T${draft.endTime}`) : null;
     if (Number.isNaN(start.getTime()) || (end && Number.isNaN(end.getTime()))) {
       return 'Enter a valid date and start and end times.';
     }
     if (end && end <= start) {
       return 'End date and time must be after the start date and time.';
+    }
+    if (
+      draft.endTime &&
+      draft.duration !== undefined &&
+      parseDurationSeconds(draft.duration) === null
+    ) {
+      return 'Enter a duration like 1h 30m, 01:30, or 01:30:00.';
     }
     return null;
   }
@@ -1110,6 +1194,7 @@ export class Dashboard implements OnInit {
       left.endDate === right.endDate &&
       left.startTime === right.startTime &&
       left.endTime === right.endTime &&
+      left.duration === right.duration &&
       left.isBillable === right.isBillable
     );
   }
