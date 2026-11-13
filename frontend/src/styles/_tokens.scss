@@ -19,6 +19,10 @@
   --color-border: var(--color-secondary);
   --color-text: var(--color-primary);
   --color-text-muted: color-mix(in srgb, var(--color-primary) 72%, var(--color-secondary));
+  --navbar-account-bg: #fffcf5;
+  --navbar-account-border: #d6b79d;
+  --navbar-account-text: #3d2b20;
+  --navbar-account-hover: #faf4e9;
 
   // Spacing scale
   --space-xs: 0.25rem;
@@ -35,4 +39,31 @@
   --radius-lg: 16px;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+html[data-theme='retro'] {
+  --font-family-base: 'VT323', monospace;
+  --color-bg: #06150c;
+  --color-surface: #0c2314;
+  --color-primary: #48e783;
+  --color-primary-dark: #103e24;
+  --color-primary-light: #153c24;
+  --color-secondary: #89c99e;
+  --color-accent: #66ff9a;
+  --color-accent-light: #163b25;
+  --color-contrast: #06140b;
+  --color-success: #53f29c;
+  --color-danger: #ff7075;
+  --color-border: #2b6640;
+  --color-text: #d4f7dc;
+  --color-text-muted: #88b798;
+  --navbar-account-bg: #0c2314;
+  --navbar-account-border: #2b6640;
+  --navbar-account-text: #d4f7dc;
+  --navbar-account-hover: #153c24;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --shadow-sm: 2px 2px 0 rgb(0 0 0 / 35%);
+  --shadow-md: 3px 3px 0 rgb(0 0 0 / 40%);
 }

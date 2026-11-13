@@ -34,6 +34,11 @@
                 "glob": "inter-latin-[4567]00-normal.woff2",
                 "input": "node_modules/@fontsource/inter/files",
                 "output": "fonts/inter"
+              },
+              {
+                "glob": "vt323-latin-400-normal.woff2",
+                "input": "node_modules/@fontsource/vt323/files",
+                "output": "fonts/vt323"
               }
             ],
             "styles": ["src/styles.scss"]

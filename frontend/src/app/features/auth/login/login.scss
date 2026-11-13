@@ -22,12 +22,25 @@
     var(--login-background);
 }
 
+html[data-theme='retro'] .auth-page {
+  --login-background: var(--color-bg);
+  --login-surface: var(--color-surface);
+  --login-lavender: var(--color-primary-light);
+  --login-deep-purple: var(--color-accent);
+}
+
 .auth-card {
   width: min(100%, 430px);
   padding: clamp(var(--space-lg), 5vw, 2.75rem);
   border: 1px solid color-mix(in srgb, #5b497f 18%, #d9cfea);
   background: color-mix(in srgb, var(--login-surface) 94%, white);
   box-shadow: 0 4px 12px rgb(52 42 64 / 8%);
+}
+
+html[data-theme='retro'] .auth-card {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
 }
 
 .auth-brand {
@@ -102,7 +115,7 @@
   padding: 0.75rem;
   border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-danger) 8%, white);
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--color-surface));
   color: var(--color-danger);
 }
 

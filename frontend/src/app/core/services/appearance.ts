@@ -2,7 +2,10 @@ import { Injectable, signal } from '@angular/core';
 
 const STORAGE_KEY = 'clockit_theme';
 const DEFAULT_THEME = 'default';
-const THEME_OPTIONS = [{ name: 'Default', value: DEFAULT_THEME }] as const;
+const THEME_OPTIONS = [
+  { name: 'Default', value: DEFAULT_THEME },
+  { name: 'Retro', value: 'retro' },
+] as const;
 
 export type Theme = (typeof THEME_OPTIONS)[number]['value'];
 

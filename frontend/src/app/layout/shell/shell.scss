@@ -34,10 +34,10 @@
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0 0.75rem;
-  border: 1px solid #d6b79d;
+  border: 1px solid var(--navbar-account-border);
   border-radius: var(--radius-md);
-  background: #fffcf5;
-  color: #3d2b20;
+  background: var(--navbar-account-bg);
+  color: var(--navbar-account-text);
   font-size: 0.925rem;
   font-weight: 500;
   line-height: 1.25;
@@ -48,7 +48,7 @@
   &:hover,
   &:focus-visible {
     border-color: var(--color-accent);
-    background: #faf4e9;
+    background: var(--navbar-account-hover);
   }
 
   &:focus-visible {
@@ -106,7 +106,6 @@
       background: var(--color-primary-light);
       outline: none;
     }
-
   }
 
   .install-dialog-backdrop {

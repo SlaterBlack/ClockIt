@@ -3,6 +3,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { HttpTestingController } from '@angular/common/http/testing';
+import { Appearance } from '../../core/services/appearance';
 import { Auth } from '../../core/services/auth';
 import { vi } from 'vitest';
 
@@ -13,6 +14,7 @@ describe('Shell', () => {
   let fixture: ComponentFixture<Shell>;
 
   beforeEach(async () => {
+    localStorage.removeItem('clockit_theme');
     await TestBed.configureTestingModule({
       imports: [Shell],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
@@ -37,14 +39,16 @@ describe('Shell', () => {
     const auth = TestBed.inject(Auth);
     const http = TestBed.inject(HttpTestingController);
     auth.fetchCurrentUser().subscribe();
-    http.expectOne((request) => request.url.endsWith('/auth/me')).flush({
-      user: {
-        id: 'user-1',
-        name: 'User',
-        email: 'user@example.com',
-        role: 'user',
-      },
-    });
+    http
+      .expectOne((request) => request.url.endsWith('/auth/me'))
+      .flush({
+        user: {
+          id: 'user-1',
+          name: 'User',
+          email: 'user@example.com',
+          role: 'user',
+        },
+      });
     fixture.detectChanges();
     component.toggleAccountMenu();
     fixture.detectChanges();
@@ -58,14 +62,16 @@ describe('Shell', () => {
     const auth = TestBed.inject(Auth);
     const http = TestBed.inject(HttpTestingController);
     auth.fetchCurrentUser().subscribe();
-    http.expectOne((request) => request.url.endsWith('/auth/me')).flush({
-      user: {
-        id: 'user-1',
-        name: 'User',
-        email: 'user@example.com',
-        role: 'user',
-      },
-    });
+    http
+      .expectOne((request) => request.url.endsWith('/auth/me'))
+      .flush({
+        user: {
+          id: 'user-1',
+          name: 'User',
+          email: 'user@example.com',
+          role: 'user',
+        },
+      });
     fixture.detectChanges();
     component.toggleAccountMenu();
     fixture.detectChanges();
@@ -81,6 +87,14 @@ describe('Shell', () => {
     expect(
       fixture.nativeElement.querySelector('[data-theme-option="default"]')?.textContent,
     ).toContain('Default');
+    expect(
+      fixture.nativeElement.querySelector('[data-theme-option="retro"]')?.textContent,
+    ).toContain('Retro');
+    fixture.nativeElement.querySelector('[data-theme-option="retro"]')?.click();
+    fixture.detectChanges();
+    expect(TestBed.inject(Appearance).theme()).toBe('retro');
+    expect(localStorage.getItem('clockit_theme')).toBe('retro');
+    expect(document.documentElement.dataset['theme']).toBe('retro');
   });
 
   it('uses the browser install prompt when available', async () => {
@@ -123,14 +137,16 @@ describe('Shell', () => {
     const auth = TestBed.inject(Auth);
     const http = TestBed.inject(HttpTestingController);
     auth.fetchCurrentUser().subscribe();
-    http.expectOne((request) => request.url.endsWith('/auth/me')).flush({
-      user: {
-        id: 'admin-1',
-        name: 'Admin',
-        email: 'admin@example.com',
-        role: 'admin',
-      },
-    });
+    http
+      .expectOne((request) => request.url.endsWith('/auth/me'))
+      .flush({
+        user: {
+          id: 'admin-1',
+          name: 'Admin',
+          email: 'admin@example.com',
+          role: 'admin',
+        },
+      });
     fixture.detectChanges();
     component.toggleAccountMenu();
     fixture.detectChanges();
