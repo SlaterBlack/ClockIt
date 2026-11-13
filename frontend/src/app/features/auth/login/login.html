@@ -1,4 +1,4 @@
-<div class="auth-page">
+<div class="auth-page" [class.retro]="appearance.theme() === 'retro'">
   <form
     class="card auth-card"
     [formGroup]="form"

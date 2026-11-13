@@ -22,7 +22,7 @@
     var(--login-background);
 }
 
-html[data-theme='retro'] .auth-page {
+.auth-page.retro {
   --login-background: var(--color-bg);
   --login-surface: var(--color-surface);
   --login-lavender: var(--color-primary-light);
@@ -37,7 +37,7 @@ html[data-theme='retro'] .auth-page {
   box-shadow: 0 4px 12px rgb(52 42 64 / 8%);
 }
 
-html[data-theme='retro'] .auth-card {
+.auth-page.retro .auth-card {
   border-color: var(--color-border);
   background: var(--color-surface);
   box-shadow: var(--shadow-md);
@@ -119,8 +119,18 @@ html[data-theme='retro'] .auth-card {
   color: var(--color-danger);
 }
 
+.auth-page.retro .auth-card .error-text {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
 .auth-card .btn {
   width: 100%;
   min-height: 44px;
   margin-top: var(--space-xs);
+}
+
+.auth-page.retro .auth-card .btn-primary {
+  color: var(--color-bg);
 }
