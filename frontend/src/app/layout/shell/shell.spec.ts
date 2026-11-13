@@ -35,6 +35,38 @@ describe('Shell', () => {
     );
   });
 
+  it('shows links to other running services from StoreIt', () => {
+    const http = TestBed.inject(HttpTestingController);
+    component.toggleServiceMenu();
+    fixture.detectChanges();
+
+    http.expectOne('/api/services').flush({
+      services: [
+        {
+          id: 'clockit',
+          name: 'ClockIt',
+          url: 'https://clockit.ai3d.com.au:2400/',
+          logoUrl: 'https://clockit.ai3d.com.au:2400/ClockItLogo_32x32.png',
+        },
+        {
+          id: 'manageit',
+          name: 'ManageIt',
+          url: 'https://manageit.ai3d.com.au/',
+          logoUrl: 'https://manageit.ai3d.com.au/ManageItLogo_32x32.png',
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    const link = fixture.nativeElement.querySelector('.service-menu-item') as HTMLAnchorElement;
+    expect(fixture.nativeElement.querySelectorAll('.service-menu-item')).toHaveLength(1);
+    expect(link.href).toBe('https://manageit.ai3d.com.au/');
+    expect(link.textContent).toContain('ManageIt');
+    expect(link.querySelector('img')?.src).toBe(
+      'https://manageit.ai3d.com.au/ManageItLogo_32x32.png',
+    );
+  });
+
   it('shows Install app in the account menu', () => {
     const auth = TestBed.inject(Auth);
     const http = TestBed.inject(HttpTestingController);

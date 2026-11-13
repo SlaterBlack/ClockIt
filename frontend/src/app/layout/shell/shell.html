@@ -1,8 +1,47 @@
 <header class="navbar">
-  <a class="navbar-brand" routerLink="/dashboard" aria-label="ClockIt home">
-    <img src="/ClockItLogo_32x32.png" width="24" height="24" alt="" />
-    <span class="navbar-brand-word">Clock<span class="navbar-brand-accent">It</span></span>
-  </a>
+  <div class="service-switcher">
+    <button
+      class="navbar-brand"
+      type="button"
+      aria-haspopup="menu"
+      aria-label="ClockIt, switch service"
+      [attr.aria-expanded]="isServiceMenuOpen()"
+      [attr.aria-controls]="isServiceMenuOpen() ? 'service-menu' : null"
+      (click)="toggleServiceMenu()"
+    >
+      <img src="/ClockItLogo_32x32.png" width="24" height="24" alt="" />
+      <span class="navbar-brand-word">Clock<span class="navbar-brand-accent">It</span></span>
+      <svg class="service-switcher-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="m4 6 4 4 4-4" />
+      </svg>
+    </button>
+    @if (isServiceMenuOpen()) {
+      <div class="service-menu-panel" id="service-menu" role="menu" aria-label="Switch service">
+        @if (serviceMenuState() === 'loading') {
+          <p class="service-menu-message" role="status">Checking services…</p>
+        } @else if (serviceMenuState() === 'error') {
+          <div class="service-menu-message" role="alert">
+            <p>Could not load services.</p>
+            <button type="button" role="menuitem" (click)="retryServiceLoad()">Try again</button>
+          </div>
+        } @else if (availableServices().length === 0) {
+          <p class="service-menu-message">No other services are currently running.</p>
+        } @else {
+          @for (service of availableServices(); track service.id) {
+            <a
+              class="service-menu-item"
+              role="menuitem"
+              [href]="service.url"
+              (click)="closeServiceMenu()"
+            >
+              <img [src]="service.logoUrl" alt="" width="24" height="24" />
+              <span>{{ service.name }}</span>
+            </a>
+          }
+        }
+      </div>
+    }
+  </div>
   <nav class="navbar-links">
     <a routerLink="/dashboard" routerLinkActive="is-active" ariaCurrentWhenActive="page"
       >Time Tracker</a
