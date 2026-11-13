@@ -111,6 +111,30 @@ describe('DateTimePicker', () => {
     expect(time.value).toBe(component.displayManualTime());
   });
 
+  it('rolls a 25-hour end time into the next day only once', () => {
+    fixture.componentRef.setInput('manualTime', true);
+    fixture.componentRef.setInput('allowOver24Hours', true);
+    fixture.componentRef.setInput('emitManualTimeOnInput', true);
+    fixture.detectChanges();
+    const emittedValues: string[] = [];
+    component.valueChange.subscribe((value) => emittedValues.push(value));
+
+    const time = fixture.nativeElement.querySelector('.manual-time-input') as HTMLInputElement;
+    time.focus();
+    time.value = '25';
+    time.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(emittedValues.at(-1)).toBe('2026-10-20T01:00');
+    fixture.componentRef.setInput('value', emittedValues.at(-1));
+    fixture.detectChanges();
+    time.blur();
+    fixture.detectChanges();
+
+    expect(emittedValues).toEqual(['2026-10-20T01:00', '2026-10-20T01:00']);
+    expect(time.value).toBe(component.displayManualTime());
+  });
+
   it('clears an optional end date and time', () => {
     fixture.componentRef.setInput('clearable', true);
     fixture.detectChanges();

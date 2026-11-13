@@ -23,6 +23,9 @@ import type { ActiveDashboardReminder } from '../../core/models/dashboard-remind
 import { DashboardReminders } from '../../core/services/dashboard-reminders';
 import { DateTimePicker } from './date-time-picker';
 
+const DURATION_FORMAT_ERROR =
+  'Use HMM, HHMM, HMMSS, HHMMSS, HH:MM, HH:MM:SS, or a value like 1h 30m.';
+
 interface TimeEntryEdit {
   id: string;
   projectId: string;
@@ -33,6 +36,7 @@ interface TimeEntryEdit {
   startTime: string;
   endTime: string;
   duration?: string;
+  durationSeconds?: number;
   isBillable: boolean;
 }
 
@@ -63,6 +67,23 @@ interface TimeEntryDay {
 
 function parseDurationSeconds(value: string): number | null {
   const normalized = value.trim();
+  const compactMatch = /^\d{3,6}$/.exec(normalized);
+  if (compactMatch) {
+    const hoursLength =
+      normalized.length === 1 || normalized.length === 3 || normalized.length === 5 ? 1 : 2;
+    const includesMinutes = normalized.length >= 3;
+    const includesSeconds = normalized.length === 5 || normalized.length === 6;
+    const hours = Number(normalized.slice(0, hoursLength));
+    const minutes = includesMinutes ? Number(normalized.slice(hoursLength, hoursLength + 2)) : 0;
+    const seconds = includesSeconds ? Number(normalized.slice(hoursLength + 2)) : 0;
+    if (minutes > 59 || seconds > 59) {
+      return null;
+    }
+
+    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+    return Number.isSafeInteger(totalSeconds) && totalSeconds > 0 ? totalSeconds : null;
+  }
+
   const clockMatch = /^(\d+):([0-5]\d)(?::([0-5]\d))?$/.exec(normalized);
   if (clockMatch) {
     const totalSeconds =
@@ -491,7 +512,7 @@ export class Dashboard implements OnInit {
     if (field === 'startTime') {
       this.updateManualEntry({ startTime: time });
     } else {
-      this.updateManualEntry({ endTime: time });
+      this.updateManualEntry({ endDate: value.slice(0, 10), endTime: time });
     }
   }
 
@@ -712,13 +733,24 @@ export class Dashboard implements OnInit {
         : this.toLocalDateTime(entry.startTime).slice(0, 10),
       startTime: this.toLocalDateTime(entry.startTime).slice(11),
       endTime: entry.endTime ? this.toLocalDateTime(entry.endTime).slice(11) : '',
+      durationSeconds: entry.endTime
+        ? (entry.durationSeconds ??
+          Math.max(
+            0,
+            Math.round(
+              (new Date(entry.endTime).getTime() - new Date(entry.startTime).getTime()) / 1000,
+            ),
+          ))
+        : undefined,
       duration: entry.endTime
-        ? this.durationPreview(
-            this.toLocalDateTime(entry.startTime).slice(0, 10),
-            this.toLocalDateTime(entry.startTime).slice(11),
-            this.toLocalDateTime(entry.endTime).slice(0, 10),
-            this.toLocalDateTime(entry.endTime).slice(11),
-            false,
+        ? this.formatDurationSeconds(
+            entry.durationSeconds ??
+              Math.max(
+                0,
+                Math.round(
+                  (new Date(entry.endTime).getTime() - new Date(entry.startTime).getTime()) / 1000,
+                ),
+              ),
           )
         : undefined,
       isBillable: entry.isBillable,
@@ -868,8 +900,12 @@ export class Dashboard implements OnInit {
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
-    if (!(event.target instanceof Element) || !event.target.closest('.entry-actions')) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest('.entry-actions')) {
       this.closeEntryActions();
+    }
+    if (this.editingEntry() && !target?.closest('.entry-edit-form')) {
+      this.flushScheduledEntryEditSave();
     }
   }
 
@@ -888,6 +924,7 @@ export class Dashboard implements OnInit {
       const updated = { ...draft, ...changes };
       if (Object.prototype.hasOwnProperty.call(changes, 'duration')) {
         const durationSeconds = updated.duration ? parseDurationSeconds(updated.duration) : null;
+        updated.durationSeconds = durationSeconds ?? undefined;
         if (durationSeconds !== null && updated.date && updated.startTime) {
           const end = new Date(`${updated.date}T${updated.startTime}`);
           end.setTime(end.getTime() + durationSeconds * 1000);
@@ -902,14 +939,19 @@ export class Dashboard implements OnInit {
           Object.prototype.hasOwnProperty.call(changes, field),
         )
       ) {
+        const start = new Date(`${updated.date}T${updated.startTime}`);
+        const end = updated.endTime
+          ? new Date(`${updated.endDate || updated.date}T${updated.endTime}`)
+          : null;
+        const durationSeconds =
+          end && !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end > start
+            ? Math.round((end.getTime() - start.getTime()) / 1000)
+            : null;
+        updated.durationSeconds = durationSeconds ?? undefined;
         updated.duration = updated.endTime
-          ? this.durationPreview(
-              updated.date,
-              updated.startTime,
-              updated.endDate,
-              updated.endTime,
-              false,
-            )
+          ? durationSeconds === null
+            ? '—'
+            : this.formatDurationSeconds(durationSeconds)
           : undefined;
       }
 
@@ -957,7 +999,7 @@ export class Dashboard implements OnInit {
     if (field === 'startTime') {
       this.updateEntryDraft({ startTime: time });
     } else {
-      this.updateEntryDraft({ endTime: time });
+      this.updateEntryDraft({ endDate: value.slice(0, 10), endTime: time });
     }
   }
 
@@ -965,6 +1007,14 @@ export class Dashboard implements OnInit {
     const input = event.currentTarget;
     if (input instanceof HTMLInputElement) {
       this.updateEntryDraft({ duration: input.value });
+      const draft = this.editingEntry();
+      if (
+        draft?.endTime &&
+        draft.duration !== undefined &&
+        parseDurationSeconds(draft.duration) === null
+      ) {
+        this.editingError.set(DURATION_FORMAT_ERROR);
+      }
     }
   }
 
@@ -1039,7 +1089,8 @@ export class Dashboard implements OnInit {
     }
 
     const start = new Date(`${draft.date}T${draft.startTime}`);
-    const durationSeconds = draft.duration ? parseDurationSeconds(draft.duration) : null;
+    const durationSeconds =
+      draft.durationSeconds ?? (draft.duration ? parseDurationSeconds(draft.duration) : null);
     const end = draft.endTime
       ? durationSeconds !== null
         ? new Date(start.getTime() + durationSeconds * 1000)
@@ -1061,12 +1112,28 @@ export class Dashboard implements OnInit {
     this.editingError.set(null);
     return this.timeEntryService.update(draft.id, update).pipe(
       tap(({ timeEntry }) => {
-        this.savedEntryEditSnapshots.set(draft.id, { ...draft });
+        const savedDurationSeconds = end
+          ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000))
+          : undefined;
+        const savedDraft: TimeEntryEdit = {
+          ...draft,
+          duration:
+            savedDurationSeconds === undefined
+              ? draft.duration
+              : this.formatDurationSeconds(savedDurationSeconds),
+          durationSeconds: savedDurationSeconds,
+        };
+        this.savedEntryEditSnapshots.set(draft.id, savedDraft);
         this.applySavedEntryEdit(draft, update, timeEntry);
         const currentDraft = this.editingEntry();
         if (currentDraft?.id === draft.id) {
-          this.editingError.set(null);
-          this.entrySaveStatus.set(this.sameEntryEdit(currentDraft, draft) ? 'saved' : 'idle');
+          if (this.sameEntryEdit(currentDraft, draft)) {
+            this.editingEntry.set(savedDraft);
+            this.editingError.set(null);
+            this.entrySaveStatus.set('saved');
+          } else {
+            this.entrySaveStatus.set('idle');
+          }
         }
       }),
       catchError(() => {
@@ -1099,19 +1166,24 @@ export class Dashboard implements OnInit {
       return 'Enter a start date and time.';
     }
     const start = new Date(`${draft.date}T${draft.startTime}`);
-    const end = draft.endTime ? new Date(`${draft.endDate || draft.date}T${draft.endTime}`) : null;
-    if (Number.isNaN(start.getTime()) || (end && Number.isNaN(end.getTime()))) {
+    if (Number.isNaN(start.getTime())) {
+      return 'Enter a valid date and start and end times.';
+    }
+    const durationSeconds =
+      draft.durationSeconds ?? (draft.duration ? parseDurationSeconds(draft.duration) : null);
+    if (draft.endTime && draft.duration !== undefined && durationSeconds === null) {
+      return DURATION_FORMAT_ERROR;
+    }
+    const end = draft.endTime
+      ? durationSeconds !== null
+        ? new Date(start.getTime() + durationSeconds * 1000)
+        : new Date(`${draft.endDate || draft.date}T${draft.endTime}`)
+      : null;
+    if (end && Number.isNaN(end.getTime())) {
       return 'Enter a valid date and start and end times.';
     }
     if (end && end <= start) {
       return 'End date and time must be after the start date and time.';
-    }
-    if (
-      draft.endTime &&
-      draft.duration !== undefined &&
-      parseDurationSeconds(draft.duration) === null
-    ) {
-      return 'Enter a duration like 1h 30m, 01:30, or 01:30:00.';
     }
     return null;
   }
@@ -1195,6 +1267,7 @@ export class Dashboard implements OnInit {
       left.startTime === right.startTime &&
       left.endTime === right.endTime &&
       left.duration === right.duration &&
+      left.durationSeconds === right.durationSeconds &&
       left.isBillable === right.isBillable
     );
   }

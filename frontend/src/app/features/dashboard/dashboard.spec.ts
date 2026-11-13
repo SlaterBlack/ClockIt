@@ -400,6 +400,30 @@ describe('Dashboard', () => {
     httpMock.expectNone((request) => request.method === 'POST');
   });
 
+  it('moves a manual entry end date forward when its end time is 25', () => {
+    component.openManualEntry();
+    component.updateManualEntry({
+      date: '2026-10-19',
+      endDate: '2026-10-19',
+      startTime: '09:00',
+      endTime: '10:00',
+    });
+    fixture.detectChanges();
+
+    const endTimeInput = fixture.nativeElement.querySelectorAll(
+      '.manual-entry-form .manual-time-input',
+    )[1] as HTMLInputElement;
+    endTimeInput.focus();
+    endTimeInput.value = '25';
+    endTimeInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(component.manualEntry()?.endDate).toBe('2026-10-20');
+    expect(component.manualEntry()?.endTime).toBe('01:00');
+    expect(component.manualEntryDuration()).toBe('16h 0m');
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
   it('requires confirmation before removing a time entry and refreshes the tracker', () => {
     const entry = {
       id: 'e1',
@@ -1030,6 +1054,21 @@ describe('Dashboard', () => {
     const endTimeInput = dateTimeFields
       .querySelectorAll('app-date-time-picker')[3]
       .querySelector('.manual-time-input') as HTMLInputElement;
+    const originalEndDate = component.editingEntry()!.endDate;
+    endTimeInput.focus();
+    endTimeInput.value = '25';
+    endTimeInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const nextEndDate = new Date(`${originalEndDate}T00:00`);
+    nextEndDate.setDate(nextEndDate.getDate() + 1);
+    expect(component.editingEntry()?.endDate).toBe(
+      `${nextEndDate.getFullYear()}-${String(nextEndDate.getMonth() + 1).padStart(2, '0')}-${String(
+        nextEndDate.getDate(),
+      ).padStart(2, '0')}`,
+    );
+    expect(component.editingEntry()?.endTime).toBe('01:00');
+
     endTimeInput.value = '10:30';
     endTimeInput.dispatchEvent(new Event('input'));
     fixture.detectChanges();
@@ -1071,12 +1110,62 @@ describe('Dashboard', () => {
       `${String(expectedEnd.getHours()).padStart(2, '0')}:${String(expectedEnd.getMinutes()).padStart(2, '0')}`,
     );
 
+    const start = new Date(`${draft.date}T${draft.startTime}`);
+    let expectedSavedEnd = expectedEnd;
+    const compactDurationCases: [string, number][] = [
+      ['00001', 1],
+      ['000001', 1],
+      ['130', 90 * 60],
+      ['0130', 90 * 60],
+      ['13045', 90 * 60 + 45],
+      ['013045', 90 * 60 + 45],
+    ];
+    for (const [value, durationSeconds] of compactDurationCases) {
+      durationInput.value = value;
+      durationInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      expect(component.editingDuration()).toBe(value);
+      const currentDraft = component.editingEntry()!;
+      expectedSavedEnd = new Date(start.getTime() + durationSeconds * 1000);
+      expect(currentDraft.endDate).toBe(
+        `${expectedSavedEnd.getFullYear()}-${String(expectedSavedEnd.getMonth() + 1).padStart(2, '0')}-${String(
+          expectedSavedEnd.getDate(),
+        ).padStart(2, '0')}`,
+      );
+      expect(currentDraft.endTime).toBe(
+        `${String(expectedSavedEnd.getHours()).padStart(2, '0')}:${String(expectedSavedEnd.getMinutes()).padStart(2, '0')}`,
+      );
+    }
+
     component.saveEntryEdit();
     const update = httpMock.expectOne(
       (request) => request.method === 'PATCH' && request.url.endsWith('/time-entries/e1'),
     );
-    expect(update.request.body.endTime).toBe(expectedEnd.toISOString());
-    update.flush({ timeEntry: { id: 'e1', endTime: expectedEnd.toISOString() } });
+    expect(update.request.body.endTime).toBe(expectedSavedEnd.toISOString());
+    update.flush({ timeEntry: { id: 'e1', endTime: expectedSavedEnd.toISOString() } });
+    expect(component.editingDuration()).toBe('1h 30m');
+
+    component.updateEntryDraft({ description: 'Keep exact seconds' });
+    component.saveEntryEdit();
+    const followUpUpdate = httpMock.expectOne(
+      (request) => request.method === 'PATCH' && request.url.endsWith('/time-entries/e1'),
+    );
+    expect(followUpUpdate.request.body.endTime).toBe(expectedSavedEnd.toISOString());
+    followUpUpdate.flush({ timeEntry: { id: 'e1', endTime: expectedSavedEnd.toISOString() } });
+
+    for (const invalidValue of ['1', '02']) {
+      durationInput.value = invalidValue;
+      durationInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(component.editingError()).toContain('Use HMM, HHMM');
+      component.saveEntryEdit();
+
+      expect(component.editingError()).toContain('Use HMM, HHMM');
+      httpMock.expectNone(
+        (request) => request.method === 'PATCH' && request.url.endsWith('/time-entries/e1'),
+      );
+    }
   });
 
   it('keeps multi-day entries grouped under their start date', () => {
@@ -1271,6 +1360,75 @@ describe('Dashboard', () => {
     const removeButton = form.querySelector('.entry-edit-actions button') as HTMLButtonElement;
     expect(removeButton.textContent).toContain('Delete entry');
     expect(removeButton.classList.contains('btn-danger')).toBe(true);
+  });
+
+  it('saves edited fields on Enter, form blur, and clicks outside the form', () => {
+    const project = {
+      id: 'p1',
+      name: 'Sydney Opera House',
+      projectNumber: '364',
+      color: '#2D6A4F',
+      isBillable: true,
+      workspaceId: 'w1',
+      archived: false,
+      createdAt: '',
+      updatedAt: '',
+    };
+    const task = { id: 't1', name: 'Design', projectId: 'p1', createdAt: '', updatedAt: '' };
+    const entry = {
+      id: 'e1',
+      description: 'Drafting',
+      startTime: '2026-10-18T09:00:00.000Z',
+      endTime: '2026-10-18T10:00:00.000Z',
+      durationSeconds: 3600,
+      isBillable: true,
+      userId: 'u1',
+      projectId: 'p1',
+      taskId: 't1',
+      project,
+      task,
+      createdAt: '',
+      updatedAt: '',
+    };
+    component.projects.set([project]);
+    component.weekStart.set(new Date(2026, 9, 12));
+    component.timeEntries.set([entry]);
+    fixture.detectChanges();
+
+    component.toggleEntryEdit(entry);
+    httpMock
+      .expectOne((request) => request.url.endsWith('/projects/p1/tasks'))
+      .flush({ tasks: [task] });
+    fixture.detectChanges();
+
+    const saveAfter = (description: string, trigger: 'enter' | 'blur' | 'outside-click'): void => {
+      component.updateEntryDraft({ description });
+      if (trigger === 'enter') {
+        const input = fixture.nativeElement.querySelector(
+          '.entry-description-input',
+        ) as HTMLInputElement;
+        input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }));
+      } else if (trigger === 'blur') {
+        const form = fixture.nativeElement.querySelector('.entry-edit-form') as HTMLElement;
+        form.dispatchEvent(
+          new FocusEvent('focusout', { bubbles: true, relatedTarget: document.body }),
+        );
+      } else {
+        const heading = fixture.nativeElement.querySelector('.tracker-heading h1') as HTMLElement;
+        heading.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      }
+
+      const request = httpMock.expectOne(
+        (item) => item.method === 'PATCH' && item.url.endsWith('/time-entries/e1'),
+      );
+      expect(request.request.body.description).toBe(description);
+      request.flush({ timeEntry: { ...entry, description } });
+      fixture.detectChanges();
+    };
+
+    saveAfter('Saved by Enter', 'enter');
+    saveAfter('Saved on blur', 'blur');
+    saveAfter('Saved on outside click', 'outside-click');
   });
 
   it('groups entries by start date and moves an edited entry to its new day', () => {

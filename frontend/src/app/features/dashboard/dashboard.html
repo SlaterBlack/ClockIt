@@ -174,6 +174,7 @@
           [timeOnly]="true"
           [stackedLabel]="true"
           [manualTime]="true"
+          [allowOver24Hours]="true"
           [emitManualTimeOnInput]="true"
           [value]="manualEntryEndTimePickerValue(manualEntry()?.endTime)"
           (valueChange)="updateManualEntryTimeDraft('endTime', $event)"
@@ -349,7 +350,7 @@
               </div>
               @if (editingEntry()?.id === entry.id) {
                 <div class="entry-edit-form" (focusout)="onEntryEditFocusOut($event)">
-                  <div class="entry-edit-fields">
+                  <div class="entry-edit-fields" (keyup.enter)="saveEntryEdit()">
                     <select
                       [ngModel]="editingEntry()?.projectId"
                       (ngModelChange)="onEditProjectChange($event)"
@@ -427,6 +428,7 @@
                         [timeOnly]="true"
                         [stackedLabel]="true"
                         [manualTime]="true"
+                        [allowOver24Hours]="true"
                         [emitManualTimeOnInput]="true"
                         [value]="entryEndTimePickerValue(editingEntry()?.endTime)"
                         (valueChange)="updateEntryTimeDraft('endTime', $event)"
@@ -437,7 +439,7 @@
                           <input
                             type="text"
                             inputmode="text"
-                            placeholder="e.g. 1h 30m or 01:30"
+                            placeholder="e.g. 130, 0130, or 013045"
                             aria-label="Time entry duration"
                             [value]="editingDuration()"
                             (input)="updateEntryDuration($event)"

@@ -33,6 +33,7 @@ export class DateTimePicker implements OnChanges {
   @Input() stackedLabel = false;
   @Input() manualTime = false;
   @Input() emitManualTimeOnInput = false;
+  @Input() allowOver24Hours = false;
   @Output() readonly valueChange = new EventEmitter<string>();
 
   readonly openPickerType = signal<OpenPicker>(null);
@@ -42,6 +43,7 @@ export class DateTimePicker implements OnChanges {
   readonly selectedMinute = signal('00');
   readonly manualTimeValue = signal('');
   readonly manualTimeEditing = signal(false);
+  private manualTimeBaseDate: Date | null = null;
   readonly weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   readonly hours = Array.from({ length: 24 }, (_, hour) => this.pad(hour));
   readonly minutes = Array.from({ length: 60 }, (_, minute) => this.pad(minute));
@@ -101,6 +103,7 @@ export class DateTimePicker implements OnChanges {
 
   onManualTimeFocus(event: FocusEvent): void {
     this.syncManualTimeFromValue();
+    this.manualTimeBaseDate = this.parseValue(this.value) ?? new Date();
     this.manualTimeEditing.set(true);
     if (event.target instanceof HTMLInputElement) {
       event.target.value = this.manualTimeValue();
@@ -134,7 +137,10 @@ export class DateTimePicker implements OnChanges {
       this.selectedHour.set(this.pad(parsed.hour));
       this.selectedMinute.set(this.pad(parsed.minute));
       if (this.emitManualTimeOnInput) {
-        this.emitDateTime(this.parseValue(this.value) ?? new Date(), false);
+        this.emitDateTime(
+          this.manualTimeBaseDate ?? this.parseValue(this.value) ?? new Date(),
+          false,
+        );
       }
     }
   }
@@ -149,8 +155,12 @@ export class DateTimePicker implements OnChanges {
     } else {
       this.selectedHour.set(this.pad(parsed.hour));
       this.selectedMinute.set(this.pad(parsed.minute));
-      this.emitDateTime(this.parseValue(this.value) ?? new Date(), false);
+      this.emitDateTime(
+        this.manualTimeBaseDate ?? this.parseValue(this.value) ?? new Date(),
+        false,
+      );
     }
+    this.manualTimeBaseDate = null;
     this.manualTimeEditing.set(false);
   }
 
@@ -178,7 +188,13 @@ export class DateTimePicker implements OnChanges {
   }
 
   private emitDateTime(date: Date, close = true): void {
-    const value = `${date.getFullYear()}-${this.pad(date.getMonth() + 1)}-${this.pad(date.getDate())}T${this.selectedHour()}:${this.selectedMinute()}`;
+    const hour = Number(this.selectedHour());
+    const outputDate = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate() + Math.floor(hour / 24),
+    );
+    const value = `${outputDate.getFullYear()}-${this.pad(outputDate.getMonth() + 1)}-${this.pad(outputDate.getDate())}T${this.pad(hour % 24)}:${this.selectedMinute()}`;
     this.valueChange.emit(value);
     if (close) {
       this.closePicker();
@@ -309,7 +325,7 @@ export class DateTimePicker implements OnChanges {
         return null;
       }
       hour = (hour % 12) + (period === 'pm' ? 12 : 0);
-    } else if (hour > 23) {
+    } else if (hour > (this.allowOver24Hours ? 99 : 23)) {
       return null;
     }
 
