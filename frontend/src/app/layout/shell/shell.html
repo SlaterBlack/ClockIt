@@ -20,15 +20,25 @@
           [attr.aria-expanded]="isAccountMenuOpen()"
           (click)="toggleAccountMenu()"
         >
-          {{ user.name }}
-          <span aria-hidden="true">⌄</span>
+          <span class="account-menu-name">{{ user.name }}</span>
+          <svg
+            class="account-menu-chevron"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path d="m4 6 4 4 4-4" />
+          </svg>
         </button>
         @if (isAccountMenuOpen()) {
           <div class="account-menu-panel" role="menu">
             @if (!isStandalone()) {
-              <button type="button" role="menuitem" (click)="installApp()">Install app</button>
+              <button type="button" role="menuitem" (click)="installApp()">Install App</button>
             }
             <a routerLink="/profile" role="menuitem" (click)="closeAccountMenu()">My account</a>
+            <button type="button" role="menuitem" data-action="appearance" (click)="openAppearance()">
+              Appearance
+            </button>
             @if (isAdmin()) {
               <a routerLink="/notifications" role="menuitem" (click)="closeAccountMenu()"
                 >Notifications</a
@@ -77,3 +87,7 @@
 <main class="page">
   <router-outlet />
 </main>
+
+@if (isAppearanceOpen()) {
+  <app-appearance-dialog (close)="closeAppearance()" />
+}

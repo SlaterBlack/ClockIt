@@ -1,6 +1,8 @@
 import { Component, ElementRef, HostListener, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Auth } from '../../core/services/auth';
+import { Appearance } from '../../core/services/appearance';
+import { AppearanceDialog } from './appearance-dialog/appearance-dialog';
 
 interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -9,12 +11,13 @@ interface InstallPromptEvent extends Event {
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [AppearanceDialog, RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
 })
 export class Shell {
   private readonly auth = inject(Auth);
+  readonly appearance = inject(Appearance);
   private readonly router = inject(Router);
   private readonly elementRef = inject(ElementRef<HTMLElement>);
 
@@ -22,6 +25,7 @@ export class Shell {
   readonly isAdmin = this.auth.isAdmin;
   readonly isAccountMenuOpen = signal(false);
   readonly isInstallHelpOpen = signal(false);
+  readonly isAppearanceOpen = signal(false);
   readonly installError = signal<string | null>(null);
   readonly isStandalone = signal(this.detectStandalone());
 
@@ -81,6 +85,15 @@ export class Shell {
     this.installError.set(null);
   }
 
+  openAppearance(): void {
+    this.closeAccountMenu();
+    this.isAppearanceOpen.set(true);
+  }
+
+  closeAppearance(): void {
+    this.isAppearanceOpen.set(false);
+  }
+
   @HostListener('window:beforeinstallprompt', ['$event'])
   onBeforeInstallPrompt(event: Event): void {
     event.preventDefault();
@@ -105,6 +118,7 @@ export class Shell {
   onEscape(): void {
     this.closeAccountMenu();
     this.closeInstallHelp();
+    this.closeAppearance();
   }
 
   private detectStandalone(): boolean {

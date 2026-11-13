@@ -51,7 +51,36 @@ describe('Shell', () => {
 
     expect(
       fixture.nativeElement.querySelector('.account-menu-panel [role="menuitem"]')?.textContent,
-    ).toContain('Install app');
+    ).toContain('Install App');
+  });
+
+  it('shows Appearance and opens the Default theme setting', () => {
+    const auth = TestBed.inject(Auth);
+    const http = TestBed.inject(HttpTestingController);
+    auth.fetchCurrentUser().subscribe();
+    http.expectOne((request) => request.url.endsWith('/auth/me')).flush({
+      user: {
+        id: 'user-1',
+        name: 'User',
+        email: 'user@example.com',
+        role: 'user',
+      },
+    });
+    fixture.detectChanges();
+    component.toggleAccountMenu();
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('[data-action="appearance"]')?.click();
+    fixture.detectChanges();
+
+    const themeTrigger = fixture.nativeElement.querySelector(
+      '[data-theme-trigger]',
+    ) as HTMLButtonElement;
+    expect(themeTrigger.textContent).toContain('Default');
+    themeTrigger.click();
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelector('[data-theme-option="default"]')?.textContent,
+    ).toContain('Default');
   });
 
   it('uses the browser install prompt when available', async () => {
@@ -109,5 +138,8 @@ describe('Shell', () => {
     expect(
       fixture.nativeElement.querySelector('a[routerLink="/notifications"]')?.textContent,
     ).toContain('Notifications');
+    expect(
+      fixture.nativeElement.querySelector('a[routerLink="/admin-settings"]')?.textContent,
+    ).toContain('Admin Settings');
   });
 });

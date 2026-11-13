@@ -1,25 +1,77 @@
+.navbar-links a {
+  min-height: 40px;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: 0.925rem;
+  font-weight: 500;
+  line-height: 1.25;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+.navbar-user {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
 .account-menu {
   position: relative;
 }
 
 .account-menu-trigger {
-  display: inline-flex;
+  box-sizing: border-box;
+  display: flex;
+  width: 180px;
+  height: 40px;
   align-items: center;
-  gap: var(--space-sm);
-  min-height: 40px;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-border);
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  border: 1px solid #d6b79d;
   border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font: inherit;
+  background: #fffcf5;
+  color: #3d2b20;
+  font-size: 0.925rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: left;
+  white-space: nowrap;
   cursor: pointer;
 
   &:hover,
   &:focus-visible {
     border-color: var(--color-accent);
-    background: var(--color-primary-light);
+    background: #faf4e9;
   }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+.account-menu-name {
+  min-width: 0;
+  overflow: hidden;
+  flex: 1 1 auto;
+  text-overflow: ellipsis;
+}
+
+.account-menu-chevron {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .account-menu-panel {
@@ -54,6 +106,7 @@
       background: var(--color-primary-light);
       outline: none;
     }
+
   }
 
   .install-dialog-backdrop {
@@ -91,5 +144,11 @@
     display: flex;
     justify-content: flex-end;
     margin-top: var(--space-lg);
+  }
+}
+
+@media (max-width: 650px) {
+  .account-menu-trigger {
+    width: 160px;
   }
 }

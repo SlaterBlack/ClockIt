@@ -53,7 +53,7 @@ acme.sh updates the delegated challenge and reloads Caddy when renewing.
 
 The Reports page supports date presets/custom dates, project, task, billable status, and user filters, summary totals, a project breakdown, and a detailed entry table. Its default is the signed-in user's entries; selecting all users includes every registered user's entries in this app.
 
-There is no public registration page. Click your username in the navigation bar to open account actions and edit your own name, email or password. Admins also have a Manage users action where they create accounts, change other users' roles/passwords, and delete accounts (an admin can't delete or demote the last remaining admin).
+There is no public registration page. Click your username in the navigation bar to open account actions, install ClockIt, edit your own name/email/password, or choose the current appearance theme (**Default**). Admins also have a Manage users action where they create accounts, change other users' roles/passwords, and delete accounts (an admin can't delete or demote the last remaining admin).
 
 Tracker time inputs accept 12-hour and 24-hour text formats such as `9am`, `9.15am`, `9:15`, `0915`, and `9.15`. Valid input is normalized when the field loses focus; the date remains separately editable.
 

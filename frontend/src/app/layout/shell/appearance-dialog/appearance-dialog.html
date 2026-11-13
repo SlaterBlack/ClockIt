@@ -1,0 +1,48 @@
+<div class="appearance-backdrop" (click)="close.emit()">
+  <section
+    class="appearance-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="appearance-title"
+    (click)="$event.stopPropagation()"
+  >
+    <h2 id="appearance-title">Appearance</h2>
+    <p>Choose the theme used across ClockIt.</p>
+    <div class="theme-field">
+      <span id="theme-label">Theme</span>
+      <div class="theme-select">
+        <button
+          class="theme-select-trigger"
+          type="button"
+          aria-haspopup="menu"
+          aria-labelledby="theme-label theme-value"
+          data-theme-trigger
+          [attr.aria-expanded]="isThemeMenuOpen()"
+          (click)="toggleThemeMenu()"
+        >
+          <span id="theme-value">{{ selectedThemeName }}</span>
+          <span class="theme-select-chevron" aria-hidden="true">⌄</span>
+        </button>
+        @if (isThemeMenuOpen()) {
+          <div class="theme-options" role="menu" aria-label="Themes">
+            @for (option of appearance.themeOptions; track option.value) {
+              <button
+                class="theme-option"
+                type="button"
+                role="menuitemradio"
+                [attr.data-theme-option]="option.value"
+                [attr.aria-checked]="appearance.theme() === option.value ? 'true' : 'false'"
+                (click)="selectTheme(option.value)"
+              >
+                {{ option.name }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </div>
+    <div class="appearance-actions">
+      <button class="btn btn-primary" type="button" (click)="close.emit()">Done</button>
+    </div>
+  </section>
+</div>
